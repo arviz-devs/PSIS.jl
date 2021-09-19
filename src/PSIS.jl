@@ -1,6 +1,8 @@
 module PSIS
 
-# Write your package code here.
+using Statistics: mean
+using LinearAlgebra: dot
+
 include("generalized_pareto.jl")
 
 end
