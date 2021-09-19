@@ -26,8 +26,8 @@ end
 function estimate_θ(x, m, n=length(x))
     T = float(eltype(x))
     p = ((1:m) .- T(1//2)) ./ m
-    x_star = x[fld(n + 2, 4)]  # first quartile of x
-    θ = inv(x[n]) .+ (1 .- inv.(sqrt.(p))) ./ (3x_star)
+    @inbounds x_star = x[fld(n + 2, 4)]  # first quartile of x
+    @inbounds θ = inv(x[n]) .+ (1 .- inv.(sqrt.(p))) ./ (3x_star)
     lθ = profile_loglikelihood.(θ, Ref(x), n)
     θ_hat = @inbounds sum(1:m) do j
         lθⱼ = lθ[j]

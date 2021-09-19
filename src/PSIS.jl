@@ -3,14 +3,19 @@ module PSIS
 using Statistics: mean
 using LinearAlgebra: dot
 
-export psis
+export psis, psis!
 
 include("generalized_pareto.jl")
 
-function psis(logr, r_eff)
+function psis(logr, r_eff=1.0; kwargs...)
     T = float(eltype(logr))
-    S = length(logr)
     logw = copyto!(similar(logr, T), logr)
+    return psis!(logw, r_eff; kwargs...)
+end
+
+function psis!(logw, r_eff=1.0; sorted=issorted(logw))
+    T = eltype(logw)
+    S = length(logw)
     k_hat = T(Inf)
 
     M = tail_length(r_eff, S)
@@ -19,14 +24,14 @@ function psis(logr, r_eff)
         return logw, k_hat
     end
 
-    perm = sortperm(logw)
-    logw_max = logw[last(perm)]
+    perm = sorted ? eachindex(logw) : sortperm(logw)
+    @inbounds logw_max = logw[last(perm)]
     icut = S - M
     tail_range = (icut + 1):S
 
-    logw_tail = @views logw[perm[tail_range]]
+    @inbounds logw_tail = @views logw[perm[tail_range]]
     logw_tail .-= logw_max
-    logu = logw[perm[icut]] - logw_max
+    @inbounds logu = logw[perm[icut]] - logw_max
 
     _, k_hat = psis_tail!(logw_tail, logu, M)
     logw_tail .+= logw_max
