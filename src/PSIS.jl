@@ -48,7 +48,7 @@ function psis_tail!(logw, logu, M=length(logw))
     T = eltype(logw)
     u = exp(logu)
     w = (logw .= exp.(logw) .- u)
-    d_hat = fit(GeneralizedPareto, w)
+    d_hat = fit(GeneralizedPareto, w; sorted=true)
     k_hat = T(d_hat.k)
     if isfinite(k_hat)
         z = 1:M
