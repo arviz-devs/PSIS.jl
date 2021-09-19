@@ -7,7 +7,11 @@ struct GeneralizedPareto{T}
     k::T
 end
 
-@inline quantile(d::GeneralizedPareto, p) = expm1(-d.k * log1p(-p)) * (d.σ / d.k)
+@inline function quantile(d::GeneralizedPareto, p)
+    k = d.k
+    z = -log1p(-p)
+    return iszero(k) ? d.σ * z : expm1(k * z) * (d.σ / k)
+end
 
 function fit(::Type{<:GeneralizedPareto}, x; sorted=false, min_points=30, adjust_prior=true)
     x = sorted ? x : sort(x)
