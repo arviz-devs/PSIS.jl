@@ -28,7 +28,7 @@ function psis(logr, r_eff)
     logw_tail .-= logw_max
     logu = logw[perm[icut]] - logw_max
 
-    _, k_hat = psis_tail!(logw_tail, logu, M; sorted=true)
+    _, k_hat = psis_tail!(logw_tail, logu, M)
     logw_tail .+= logw_max
 
     k_hat > 0.7 &&
@@ -39,11 +39,10 @@ end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
 
-function psis_tail!(logw, logu, M=length(logw); sorted=false)
-    sorted || sort!(logw)
+function psis_tail!(logw, logu, M=length(logw))
     T = eltype(logw)
     u = exp(logu)
-    w = exp.(logw) .- u
+    w = (logw .= exp.(logw) .- u)
     d_hat = fit(GeneralizedPareto, w)
     k_hat = T(d_hat.k)
     if isfinite(k_hat)

@@ -29,8 +29,12 @@ function estimate_θ(x, m, n=length(x))
     x_star = x[fld(n + 2, 4)]  # first quartile of x
     θ = inv(x[n]) .+ (1 .- inv.(sqrt.(p))) ./ (3x_star)
     lθ = profile_loglikelihood.(θ, Ref(x), n)
-    w = posterior_quadrature_weights(lθ)
-    return dot(w, θ)
+    θ_hat = @inbounds sum(1:m) do j
+        lθⱼ = lθ[j]
+        θⱼ = θ[j]
+        return θⱼ / sum(lθₜ -> exp(lθₜ - lθⱼ), lθ)
+    end
+    return θ_hat
 end
 
 function estimate_k(x, θ_hat)
@@ -41,16 +45,6 @@ end
 estimate_σ(θ_hat, k_hat) = -k_hat / θ_hat
 
 prior_adjust_k(k, n) = (n * k + 5) / (n + 10)
-
-function posterior_quadrature_weights(lθ)
-    T = typeof(exp(zero(eltype(lθ))))
-    w = similar(lθ, T)
-    @inbounds for j in eachindex(lθ, w)
-        lθⱼ = lθ[j]
-        w[j] = inv(sum(lθₜ -> exp(lθₜ - lθⱼ), lθ))
-    end
-    return w
-end
 
 function profile_loglikelihood(θ, x, n=length(x))
     nθ = -θ
