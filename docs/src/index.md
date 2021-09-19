@@ -4,7 +4,7 @@ CurrentModule = PSIS
 
 # PSIS
 
-Documentation for [PSIS](https://github.com/sethaxen/PSIS.jl).
+Documentation for [PSIS](https://github.com/arviz-devs/PSIS.jl).
 
 ```@index
 ```
