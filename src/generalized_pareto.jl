@@ -23,7 +23,7 @@ function fit(::Type{<:GeneralizedPareto}, x; sorted=false, min_points=30, adjust
     return GeneralizedPareto(σ_hat, k_hat)
 end
 
-function estimate_θ(x, m, n = length(x))
+function estimate_θ(x, m, n=length(x))
     T = float(eltype(x))
     p = ((1:m) .- T(1//2)) ./ m
     x_star = x[fld(n + 2, 4)]  # first quartile of x

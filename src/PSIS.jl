@@ -27,11 +27,12 @@ function psis(logr, r_eff)
     logw_tail = @views logw[perm[tail_range]]
     logw_tail .-= logw_max
     logu = logw[perm[icut]] - logw_max
-    
+
     _, k_hat = psis_tail!(logw_tail, logu, M; sorted=true)
     logw_tail .+= logw_max
 
-    k_hat > 0.7 && @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates are likely to be unstable."
+    k_hat > 0.7 &&
+        @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates are likely to be unstable."
 
     return logw, T(k_hat)
 end
