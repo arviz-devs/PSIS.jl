@@ -2,14 +2,9 @@ using PSIS
 using Test
 using RCall
 
-function install_loo()
-    R"""
-    install.packages("loo",
-                     dependencies=TRUE,
-                     install.packages.check.source="no",
-                     repos=c("https://cloud.r-project.org"))
-    library(loo)
-    """
+function has_loo()
+    R"has_loo <- require('loo')"
+    return @rget has_loo
 end
 
 function psis_loo(logr, r_eff=1.0)
@@ -21,10 +16,8 @@ function psis_loo(logr, r_eff=1.0)
     return vec(@rget(logw)), @rget(k)
 end
 
-install_loo()
-
 @testset "psis/psis!" begin
-    @testset "consistent with loo" begin
+    has_loo() && @testset "consistent with loo" begin
         n = 10_000
         @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
             logr = randn(n)
