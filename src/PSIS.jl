@@ -8,13 +8,70 @@ export psis, psis!
 include("utils.jl")
 include("generalized_pareto.jl")
 
+"""
+    psis(log_ratios, r_eff; kwargs...) -> (log_weights, k)
+
+Compute Pareto smoothed importance sampling (PSIS) log weights [^Vehtari2021].
+
+See [`psis!`](@ref) for version that smoothes the ratios in-place.
+
+[^Vehtari2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
+    Pareto smoothed importance sampling.
+    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+# Arguments
+
+  - `log_ratios`: an array of logarithms of importance ratios.
+  - `r_eff`: the ratio of effective sample size of `log_ratios` and the actual sample size,
+    used to correct for autocorrelation due to MCMC. `r_eff=1` should be used if the ratios
+    were sampled independently.
+
+# Keywords
+
+  - `sorted=issorted(log_ratios)`: whether `log_ratios` are already sorted.
+  - `normalize=false`: whether to normalize the log weights so that
+    `sum(exp.(low_weights)) ≈ 1`.
+
+# Returns
+
+  - `log_weights`: an array of smoothed log weights
+  - `k`: the estimated shape parameter ``k`` of the generalized Pareto distribution, which
+    is useful for diagnosing the distribution of importance ratios. See details below.
+
+# Diagnostic
+
+The shape parameter ``k`` of the generalized Pareto distribution can be used to diagnose
+reliability and convergence of estimates using the importance weights [^Vehtari2021]:
+
+  - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
+    PSIS both are reliable.
+  - if ``k < \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
+    the central limit theorem holds. As ``k`` approaches the upper bound, IS becomes less
+    reliable, while PSIS still works well but with a higher RMSE.
+  - if ``\\frac{1}{2} ≤ k < 0.7``, then the variance is infinite, and IS can behave quite
+    poorly. However, PSIS works well in this regime.
+  - if ``0.7 ≤ k < 1``, then it quickly becomes impractical to collect enough importance
+    weights to reliably compute estimates, and importance sampling is not recommended.
+  - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
+    exists. The convergence rate is close to zero, and bias can be large with practical
+    sample sizes.
+
+A warning is raised if ``k ≥ 0.7``.
+"""
 function psis(logr, r_eff=1.0; kwargs...)
     T = float(eltype(logr))
     logw = copyto!(similar(logr, T), logr)
     return psis!(logw, r_eff; kwargs...)
 end
 
-function psis!(logw, r_eff=1.0; sorted=issorted(logw))
+"""
+    psis!(args...; kwargs...)
+
+In-place compute Pareto smoothed importance sampling (PSIS) log weights.
+
+See [`psis`](@ref) for an out-of-place version and for description of arguments and return
+values.
+"""
+function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
@@ -37,8 +94,13 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw))
     _, k_hat = psis_tail!(logw_tail, logu, M)
     logw_tail .+= logw_max
 
-    k_hat > 0.7 &&
-        @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates are likely to be unstable."
+    if normalize
+        logw .-= logsumexp(logw)
+    end
+
+    k_hat ≥ 0.7 &&
+        @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates " *
+              "are likely to be unstable."
 
     return logw, T(k_hat)
 end
