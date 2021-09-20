@@ -11,3 +11,5 @@ makedocs(;
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", "false") == "true", assets=String[]),
     pages=["Home" => "index.md"],
 )
+
+deploydocs(; repo="github.com/arviz-devs/PSIS.jl.git", devbranch="main")
