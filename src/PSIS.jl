@@ -11,11 +11,11 @@ include("generalized_pareto.jl")
 """
     psis(log_ratios, r_eff; kwargs...) -> (log_weights, k)
 
-Compute Pareto smoothed importance sampling (PSIS) log weights [^Vehtari2021].
+Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
 See [`psis!`](@ref) for version that smoothes the ratios in-place.
 
-[^Vehtari2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
+[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
     [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
 # Arguments
@@ -40,7 +40,7 @@ See [`psis!`](@ref) for version that smoothes the ratios in-place.
 # Diagnostic
 
 The shape parameter ``k`` of the generalized Pareto distribution can be used to diagnose
-reliability and convergence of estimates using the importance weights [^Vehtari2021]:
+reliability and convergence of estimates using the importance weights [^VehtariSimpson2021]:
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
     PSIS both are reliable.
