@@ -52,7 +52,7 @@ end
             lw2, k2 = psis(x; normalize=true)
             @test k1 == k2
             @test !(lw1 ≈ lw2)
-            @test all(≈(0), diff(lw1 .- lw2))
+            @test all(diff(lw1 .- lw2) .≈ 0)
             @test sum(exp.(lw2)) ≈ 1
         end
     end
