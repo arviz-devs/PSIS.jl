@@ -5,6 +5,7 @@ using LinearAlgebra: dot
 
 export psis, psis!
 
+include("utils.jl")
 include("generalized_pareto.jl")
 
 function psis(logr, r_eff=1.0; kwargs...)
@@ -51,8 +52,7 @@ function psis_tail!(logw, logu, M=length(logw))
     d_hat = fit(GeneralizedPareto, w; sorted=true)
     k_hat = T(d_hat.k)
     if isfinite(k_hat)
-        z = 1:M
-        p = (z .- T(1//2)) ./ M
+        p = uniform_probabilities(T, M)
         logw .= min.(log.(quantile.(Ref(d_hat), p) .+ u), zero(T))
     end
     return logw, k_hat
