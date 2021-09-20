@@ -24,12 +24,12 @@ function fit(::Type{<:GeneralizedPareto}, x; sorted=false, min_points=30, adjust
     σ_hat = estimate_σ(θ_hat, k_hat)
     # NOTE: the paper is ambiguous whether the adjustment is applied to k_hat
     # before or after computing σ_hat. From private discussion with Aki Vehtari,
-    # adjusting afterware produces better results.
+    # adjusting afterwards produces better results.
     k_hat = adjust_prior ? prior_adjust_k(k_hat, n) : k_hat
     return GeneralizedPareto(σ_hat, k_hat)
 end
 
-# estimate θ̂ = ∫ θ p(θ|x) dθ using quadrature over m grid points
+# estimate θ̂ = ∫θp(θ|x)dθ using quadrature over m grid points
 # uniformly sampled over the empirical prior
 function estimate_θ(x, m)
     T = float(eltype(x))
