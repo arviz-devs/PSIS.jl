@@ -79,29 +79,32 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
     M = tail_length(r_eff, S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
-        return logw, k_hat
+    else
+        perm = sorted ? eachindex(logw) : sortperm(logw)
+        @inbounds logw_max = logw[last(perm)]
+        icut = S - M
+        tail_range = (icut + 1):S
+
+        @inbounds logw_tail = @views logw[perm[tail_range]]
+        if logw_max - first(logw_tail) < eps(eltype(logw_tail)) / 100
+            @warn "Cannot fit the generalized Pareto distribution because all tail " *
+                  "values are the same"
+        else
+            logw_tail .-= logw_max
+            @inbounds logu = logw[perm[icut]] - logw_max
+
+            _, k_hat = psis_tail!(logw_tail, logu, M)
+            logw_tail .+= logw_max
+
+            k_hat ≥ 0.7 &&
+                @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates " *
+                      "are likely to be unstable."
+        end
     end
-
-    
-    perm = sorted ? eachindex(logw) : sortperm(logw)
-    @inbounds logw_max = logw[last(perm)]
-    icut = S - M
-    tail_range = (icut + 1):S
-
-    @inbounds logw_tail = @views logw[perm[tail_range]]
-    logw_tail .-= logw_max
-    @inbounds logu = logw[perm[icut]] - logw_max
-
-    _, k_hat = psis_tail!(logw_tail, logu, M)
-    logw_tail .+= logw_max
 
     if normalize
         logw .-= logsumexp(logw)
     end
-
-    k_hat ≥ 0.7 &&
-        @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates " *
-              "are likely to be unstable."
 
     return logw, k_hat
 end
