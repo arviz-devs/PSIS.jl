@@ -33,10 +33,10 @@ function estimate_θ(x, m, n=length(x))
     @inbounds x_star = x[fld(n + 2, 4)]  # first quartile of x
     @inbounds θ = inv(x[n]) .+ (1 .- inv.(sqrt.(p))) ./ (3x_star)
     lθ = profile_loglikelihood.(θ, Ref(x), n)
+    lθ_norm = logsumexp(lθ)
     θ_hat = @inbounds sum(1:m) do j
-        lθⱼ = lθ[j]
-        θⱼ = θ[j]
-        return θⱼ / sum(lθₜ -> exp(lθₜ - lθⱼ), lθ)
+        wⱼ = exp(lθ[j] - lθ_norm)
+        return θ[j] * wⱼ
     end
     return θ_hat
 end
