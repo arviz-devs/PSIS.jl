@@ -33,13 +33,6 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - uses: r-lib/actions/setup-r@v1
-        with:
-          r-version: release
-      - name: Install loo
-        run: |
-          install.packages('loo')
-        shell: Rscript {0}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
