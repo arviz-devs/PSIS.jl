@@ -1,7 +1,7 @@
 using PSIS
 using Test
 using RCall
-using Distributions: Exponential, logpdf
+using Distributions: Exponential, logpdf, mean
 using LogExpFunctions: logsumexp
 
 function has_loo()
