@@ -2,5 +2,6 @@ using PSIS
 using Test
 
 @testset "PSIS.jl" begin
-    # Write your tests here.
+    include("generalized_pareto.jl")
+    include("psis.jl")
 end
