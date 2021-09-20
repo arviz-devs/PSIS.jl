@@ -82,6 +82,7 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
         return logw, k_hat
     end
 
+    
     perm = sorted ? eachindex(logw) : sortperm(logw)
     @inbounds logw_max = logw[last(perm)]
     icut = S - M
@@ -102,7 +103,7 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
         @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates " *
               "are likely to be unstable."
 
-    return logw, T(k_hat)
+    return logw, k_hat
 end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
