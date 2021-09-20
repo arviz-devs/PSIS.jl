@@ -3,6 +3,7 @@ using Test
 using RCall
 using Distributions: Exponential, logpdf, mean
 using LogExpFunctions: logsumexp
+using Logging: SimpleLogger, with_logger
 
 function has_loo()
     R"has_loo <- require('loo')"
@@ -52,7 +53,7 @@ end
             lw2, k2 = psis(x; normalize=true)
             @test k1 == k2
             @test !(lw1 ≈ lw2)
-            @test all(diff(lw1 .- lw2) .≈ 0)
+            @test all(diff(lw1 .- lw2) .< eps())
             @test sum(exp.(lw2)) ≈ 1
         end
     end
