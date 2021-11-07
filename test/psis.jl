@@ -95,9 +95,35 @@ end
         @test k > 0.7
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto k statistic exceeded 0.7. Resulting importance sampling estimates are likely to be unstable",
+            "Resulting importance sampling estimates are likely to be unstable", msg
+        )
+
+        io = IOBuffer()
+        with_logger(SimpleLogger(io)) do
+            PSIS.check_pareto_k(1.1)
+        end
+        msg = String(take!(io))
+        @test occursin(
+            "Warning: Pareto k=1.1 ≥ 1. Resulting importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.",
             msg,
         )
+
+        io = IOBuffer()
+        with_logger(SimpleLogger(io)) do
+            PSIS.check_pareto_k(0.8)
+        end
+        msg = String(take!(io))
+        @test occursin(
+            "Warning: Pareto k=0.8 ≥ 0.7. Resulting importance sampling estimates are likely to be unstable.",
+            msg,
+        )
+
+        io = IOBuffer()
+        with_logger(SimpleLogger(io)) do
+            PSIS.check_pareto_k(0.69)
+        end
+        msg = String(take!(io))
+        @test isempty(msg)
     end
 
     has_loo() && @testset "consistent with loo" begin

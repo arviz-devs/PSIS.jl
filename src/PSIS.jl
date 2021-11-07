@@ -2,6 +2,7 @@ module PSIS
 
 using Statistics: mean
 using LinearAlgebra: dot
+using Printf: @sprintf
 
 export psis, psis!
 
@@ -88,7 +89,7 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
         @inbounds logw_tail = @views logw[perm[tail_range]]
         if logw_max - first(logw_tail) < eps(eltype(logw_tail)) / 100
             @warn "Cannot fit the generalized Pareto distribution because all tail " *
-                  "values are the same"
+                "values are the same"
         else
             logw_tail .-= logw_max
             @inbounds logu = logw[perm[icut]] - logw_max
@@ -96,9 +97,7 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
             _, k_hat = psis_tail!(logw_tail, logu, M)
             logw_tail .+= logw_max
 
-            k_hat ≥ 0.7 &&
-                @warn "Pareto k statistic exceeded 0.7. Resulting importance sampling estimates " *
-                      "are likely to be unstable."
+            check_pareto_k(k_hat)
         end
     end
 
@@ -107,6 +106,18 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
     end
 
     return logw, k_hat
+end
+
+function check_pareto_k(k)
+    if k ≥ 1
+        @warn "Pareto k=$(@sprintf("%.2g", k)) ≥ 1. Resulting importance sampling " *
+            "estimates are likely to be unstable and are unlikely to converge with " *
+            "additional samples."
+    elseif k ≥ 0.7
+        @warn "Pareto k=$(@sprintf("%.2g", k)) ≥ 0.7. Resulting importance sampling " *
+            "estimates are likely to be unstable."
+    end
+    return nothing
 end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
