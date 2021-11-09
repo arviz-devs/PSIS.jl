@@ -118,7 +118,7 @@ which are also contained within the returned [`PSISResult`](@ref) object.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw, r_eff; sorted=issorted(logw))
+function psis!(logw, r_eff; sorted::Bool=issorted(logw))
     S = length(logw)
     M = tail_length(r_eff, S)
 
