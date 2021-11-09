@@ -1,3 +1,4 @@
+# compute (d + shift) * scale but return GeneralizedPareto instead of LocationScale
 function shift_then_scale(d::Distributions.GeneralizedPareto, shift, scale)
     return Distributions.GeneralizedPareto((d.μ + shift) * scale, d.σ * scale, d.ξ)
 end
@@ -14,7 +15,7 @@ end
         x,
         method::EmpiricalBayesEstimate;
         kwargs...,
-    ) -> ::Distributions.GeneralizedPareto
+    ) -> Distributions.GeneralizedPareto
 
 Estimate a generalized Pareto distribution (GPD) given the points `x` and mean `d.μ`.
 
