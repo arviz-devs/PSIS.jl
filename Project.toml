@@ -1,7 +1,7 @@
 name = "PSIS"
 uuid = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
 authors = ["Seth Axen <seth.axen@gmail.com> and contributors"]
-version = "0.1.1"
+version = "0.2.0-DEV"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
