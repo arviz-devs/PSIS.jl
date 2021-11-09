@@ -22,20 +22,36 @@ end
 
 @testset "psis/psis!" begin
     @testset "basic" begin
-        # std normal proposal and target
-        x = -randn(1000) .^ 2 ./ 2
-        res = @inferred PSISResult{Float64} psis(x, 0.7)
-        @test res isa PSISResult
-        logsumw = logsumexp(res.log_weights)
-        @test sum(res.weights) ≈ 1
-        @test res.weights ≈ exp.(res.log_weights .- logsumw)
-        @test res.ndraws == length(res.log_weights)
-        @test res.pareto_k < 0.5
-        tail_length = PSIS.tail_length(0.7, 1_000)
-        @test res.tail_length == tail_length
-        tail_dist = res.tail_dist
-        @test tail_dist isa GeneralizedPareto
-        @test tail_dist.ξ == res.pareto_k
+        @testset "$f" for f in (psis, psis!)
+            # std normal proposal and target
+            x = -randn(1000) .^ 2 ./ 2
+            perm = sortperm(x)
+            xcopy = copy(x)
+            res = @inferred PSISResult{Float64} f(xcopy, 0.7)
+            M = res.tail_length
+            S = length(x)
+            tail_ind = S - M + 1
+            tail_range = perm[tail_ind:S]
+            not_tail_range = perm[1:(tail_ind - 1)]
+            @test x[not_tail_range] == res.log_weights[not_tail_range]
+            @test xcopy[not_tail_range] == res.log_weights[not_tail_range]
+            if f === psis!
+                @test xcopy[tail_range] == res.log_weights[tail_range]
+            else
+                @test xcopy[tail_range] != res.log_weights[tail_range]
+            end
+            @test res isa PSISResult
+            logsumw = logsumexp(res.log_weights)
+            @test sum(res.weights) ≈ 1
+            @test res.weights ≈ exp.(res.log_weights .- logsumw)
+            @test res.ndraws == length(res.log_weights)
+            @test res.pareto_k < 0.5
+            tail_length = PSIS.tail_length(0.7, 1_000)
+            @test res.tail_length == tail_length
+            tail_dist = res.tail_dist
+            @test tail_dist isa GeneralizedPareto
+            @test tail_dist.ξ == res.pareto_k
+        end
     end
 
     @testset "importance sampling tests" begin
