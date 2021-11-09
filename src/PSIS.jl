@@ -1,6 +1,7 @@
 module PSIS
 
 using Statistics: mean
+using LogExpFunctions: logsumexp
 using LinearAlgebra: dot
 using Printf: @sprintf
 
