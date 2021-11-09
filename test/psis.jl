@@ -1,7 +1,8 @@
 using PSIS
 using Test
 using RCall
-using Distributions: Exponential, logpdf, mean
+using Random
+using Distributions: Exponential, GeneralizedPareto, logpdf, mean
 using LogExpFunctions: logsumexp
 using Logging: SimpleLogger, with_logger
 
@@ -10,7 +11,7 @@ function has_loo()
     return @rget has_loo
 end
 
-function psis_loo(logr, r_eff=1.0)
+function psis_loo(logr, r_eff)
     R"""
     res <- psis($logr, r_eff=$r_eff)
     logw <- res$log_weights
@@ -20,6 +21,23 @@ function psis_loo(logr, r_eff=1.0)
 end
 
 @testset "psis/psis!" begin
+    @testset "basic" begin
+        # std normal proposal and target
+        x = -randn(1000) .^ 2 ./ 2
+        res = @inferred PSISResult{Float64} psis(x, 0.7)
+        @test res isa PSISResult
+        logsumw = logsumexp(res.log_weights)
+        @test sum(res.weights) ≈ 1
+        @test res.weights ≈ exp.(res.log_weights .- logsumw)
+        @test res.ndraws == length(res.log_weights)
+        @test res.pareto_k < 0.5
+        tail_length = PSIS.tail_length(0.7, 1_000)
+        @test res.tail_length == tail_length
+        tail_dist = res.tail_dist
+        @test tail_dist isa GeneralizedPareto
+        @test tail_dist.ξ == res.pareto_k
+    end
+
     @testset "importance sampling tests" begin
         @testset "Exponential($λ) → Exponential(1)" for (λ, klb, kub, rtol) in [
             (0.8, 0, 0.5, 0.02), (0.4, 0.5, 0.7, 0.05), (0.2, 0.7, 1, 0.3)
@@ -32,10 +50,10 @@ end
             logr_norm = logsumexp(logr)
             @test sum(exp.(logr .- logr_norm) .* x) ≈ mean(target) rtol = rtol
 
-            logw, k = psis(logr)
-            @test klb < k < kub
-            logw_norm = logsumexp(logw)
-            @test sum(exp.(logw .- logw_norm) .* x) ≈ mean(target) rtol = rtol
+            res = psis(logr, 1.0)
+            logsumw = logsumexp(res.log_weights)
+            @test klb < res.pareto_k < kub
+            @test sum(res.weights .* x) ≈ mean(target) rtol = rtol
         end
     end
 
@@ -43,29 +61,24 @@ end
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
-            @test psis(x)[1] == invpermute!(psis(x[perm]; sorted=true)[1], perm)
-            @test psis(x)[2] == psis(x[perm]; sorted=true)[2]
-        end
-
-        @testset "normalize=true" begin
-            x = randn(100)
-            lw1, k1 = psis(x)
-            lw2, k2 = psis(x; normalize=true)
-            @test k1 == k2
-            @test !(lw1 ≈ lw2)
-            @test all(abs.(diff(lw1 .- lw2)) .< sqrt(eps()))
-            @test sum(exp.(lw2)) ≈ 1
+            res = psis(x, 1.0)
+            res_perm = psis(x[perm], 1.0; sorted=true)
+            @test res.log_weights == invpermute!(copy(res_perm.log_weights), perm)
+            @test res.weights == invpermute!(copy(res_perm.weights), perm)
+            @test res.pareto_k == res_perm.pareto_k
+            @test res.pareto_k == res_perm.pareto_k
         end
     end
 
     @testset "warnings" begin
         io = IOBuffer()
         logr = randn(5)
-        logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
+        res = with_logger(SimpleLogger(io)) do
+            psis(logr, 1.0)
         end
-        @test logw == logr
-        @test isinf(k)
+        @test res.log_weights == logr
+        @test res.pareto_k isa Missing
+        @test res.tail_dist isa Missing
         msg = String(take!(io))
         @test occursin(
             "Warning: Insufficient tail draws to fit the generalized Pareto distribution",
@@ -73,34 +86,22 @@ end
         )
 
         io = IOBuffer()
-        logr = ones(100)
-        logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
-        end
-        @test logw == logr
-        @test isinf(k)
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: Cannot fit the generalized Pareto distribution because all tail values are the same",
-            msg,
-        )
-
-        io = IOBuffer()
         x = rand(Exponential(100), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
-        logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
+        res = with_logger(SimpleLogger(io)) do
+            psis(logr, 1.0)
         end
-        @test logw != logr
-        @test k > 0.7
+        @test res.log_weights != logr
+        @test res.pareto_k > 0.7
         msg = String(take!(io))
         @test occursin(
             "Resulting importance sampling estimates are likely to be unstable", msg
         )
 
         io = IOBuffer()
+        dist = GeneralizedPareto(0.3, 1.0, 1.1)
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(1.1)
+            PSIS.check_tail_dist(dist)
         end
         msg = String(take!(io))
         @test occursin(
@@ -109,8 +110,9 @@ end
         )
 
         io = IOBuffer()
+        dist = GeneralizedPareto(0.3, 1.0, 0.8)
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(0.8)
+            PSIS.check_tail_dist(dist)
         end
         msg = String(take!(io))
         @test occursin(
@@ -119,8 +121,9 @@ end
         )
 
         io = IOBuffer()
+        dist = GeneralizedPareto(0.3, 1.0, 0.69)
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(0.69)
+            PSIS.check_tail_dist(dist)
         end
         msg = String(take!(io))
         @test isempty(msg)
@@ -130,11 +133,11 @@ end
         n = 10_000
         @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
             logr = randn(n)
-            logw, k = psis(logr, r_eff)
-            @test !isapprox(logw, logr)
+            res = psis(logr, r_eff)
+            @test !isapprox(res.log_weights, logr)
             logw_loo, k_loo = psis_loo(logr, r_eff)
-            @test logw ≈ logw_loo
-            @test k ≈ k_loo
+            @test res.log_weights ≈ logw_loo
+            @test res.pareto_k ≈ k_loo
         end
     end
 end
