@@ -63,10 +63,9 @@ end
             perm = sortperm(x)
             res = psis(x, 1.0)
             res_perm = psis(x[perm], 1.0; sorted=true)
-            @test res.log_weights == invpermute!(copy(res_perm.log_weights), perm)
-            @test res.weights == invpermute!(copy(res_perm.weights), perm)
-            @test res.pareto_k == res_perm.pareto_k
-            @test res.pareto_k == res_perm.pareto_k
+            @test res.log_weights ≈ invpermute!(copy(res_perm.log_weights), perm)
+            @test res.weights ≈ invpermute!(copy(res_perm.weights), perm)
+            @test res.pareto_k ≈ res_perm.pareto_k
         end
     end
 
