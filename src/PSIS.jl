@@ -30,30 +30,47 @@ Result of Pareto-smoothed importance sampling (PSIS).
 
 See [`psis`](@ref) for a description of how to use `pareto_k` as a diagnostic.
 """
-struct PSISResult{
-    T,W<:AbstractArray{T},R<:Real,D<:Union{Missing,Distributions.GeneralizedPareto{T}}
-}
+struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
     r_eff::R
-    tail_length::Int
+    tail_length::L
     tail_dist::D
 end
 
 function Base.getproperty(r::PSISResult, k::Symbol)
     if k === :weights
         log_weights = getfield(r, :log_weights)
-        return exp.(log_weights .- logsumexp(log_weights))
+        log_sum_weights = if ndims(log_weights) == 3
+            logsumexp(log_weights; dims=(2, 3))
+        else
+            logsumexp(log_weights)
+        end
+        return exp.(log_weights .- log_sum_weights)
     end
-    k === :ndraws && return length(getfield(r, :log_weights))
+    if k === :nparams
+        log_weights = getfield(r, :log_weights)
+        return ndims(log_weights) == 1 ? 1 : size(log_weights, 1)
+    end
+    if k === :ndraws
+        log_weights = getfield(r, :log_weights)
+        return ndims(log_weights) == 3 ? prod(size(log_weights)[2:3]) : length(log_weights)
+    end
+    if k === :nchains
+        log_weights = getfield(r, :log_weights)
+        d = ndims(log_weights)
+        return d == 1 ? 1 : size(log_weights, d)
+    end
     k === :pareto_k && return pareto_k(getfield(r, :tail_dist))
     return getfield(r, k)
 end
 
-Base.propertynames(r::PSISResult) = [fieldnames(typeof(r))..., :weights, :pareto_k, :ndraws]
+function Base.propertynames(r::PSISResult)
+    return [fieldnames(typeof(r))..., :weights, :pareto_k, :nparams, :ndraws, :nchains]
+end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult{T}) where {T}
     println(io, typeof(r), ":")
-    println(io, "    ndraws: ", r.ndraws)
+    println(io, "    (nparams, ndraws, nchains): ", (r.nparams, r.ndraws, r.nchains))
     println(io, "    r_eff: ", r.r_eff)
     print(io, "    pareto_k: ", r.pareto_k)
     return nothing
@@ -121,26 +138,42 @@ values.
 """
 function psis!(logw, r_eff; sorted::Bool=issorted(logw))
     S = length(logw)
-    M = tail_length(r_eff, S)
+    M = tail_length(r_eff[1], S)
 
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
         return PSISResult(logw, r_eff, M, missing)
     end
 
-    @inbounds logw_max = logw[last(perm)]
+    logw_vec = vec(logw)
     perm = sorted ? collect(eachindex(logw_vec)) : sortperm(logw_vec)
+    @inbounds logw_max = logw_vec[last(perm)]
     icut = S - M
     tail_range = (icut + 1):S
-    @inbounds logw_tail = @views logw[perm[tail_range]]
-    @inbounds logμ = logw[perm[icut]]
+    @inbounds logw_tail = @views logw_vec[perm[tail_range]]
+    @inbounds logμ = logw_vec[perm[icut]]
     _, tail_dist = psis_tail!(logw_tail, logμ; sorted=true)
     check_tail_dist(tail_dist)
+
     return PSISResult(logw, r_eff, M, tail_dist)
+end
+function psis!(logw::AbstractArray{T,3}, r_eff::AbstractVector) where {T}
+    nparams = size(logw, 1)
+    @assert nparams == length(r_eff)
+    tail_dists = Vector{Distributions.GeneralizedPareto{T}}(undef, nparams)
+    tail_lengths = Vector{Int}(undef, nparams)
+    Threads.@threads for i in 1:nparams
+        logwᵢ = @views logw[i, :, :]
+        res = psis!(logwᵢ, r_eff[i])
+        tail_dists[i] = res.tail_dist
+        tail_lengths[i] = res.tail_length
+    end
+    return PSISResult(logw, r_eff, tail_lengths, tail_dists)
 end
 
 pareto_k(d::Distributions.GeneralizedPareto) = d.ξ
 pareto_k(::Missing) = missing
+pareto_k(ds::AbstractVector) = map(pareto_k, ds)
 
 function check_tail_dist(d::Distributions.GeneralizedPareto)
     k = pareto_k(d)
