@@ -55,7 +55,8 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult{T}) where {T}
     println(io, typeof(r), ":")
     println(io, "    ndraws: ", r.ndraws)
     println(io, "    r_eff: ", r.r_eff)
-    return println(io, "    pareto_k: ", r.pareto_k)
+    print(io, "    pareto_k: ", r.pareto_k)
+    return nothing
 end
 
 """
