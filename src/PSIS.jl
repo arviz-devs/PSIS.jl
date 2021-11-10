@@ -128,8 +128,8 @@ function psis!(logw, r_eff; sorted::Bool=issorted(logw))
         return PSISResult(logw, r_eff, M, missing)
     end
 
-    perm = sorted ? eachindex(logw) : sortperm(logw)
     @inbounds logw_max = logw[last(perm)]
+    perm = sorted ? collect(eachindex(logw_vec)) : sortperm(logw_vec)
     icut = S - M
     tail_range = (icut + 1):S
     @inbounds logw_tail = @views logw[perm[tail_range]]
