@@ -1,8 +1,11 @@
 module PSIS
 
-using Statistics: mean
+using Distributions: Distributions
 using LinearAlgebra: dot
+using LogExpFunctions: logsumexp
 using Printf: @sprintf
+using Statistics: mean, median, quantile
+using StatsBase: StatsBase
 
 export psis, psis!
 
@@ -16,9 +19,6 @@ Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2
 
 See [`psis!`](@ref) for version that smoothes the ratios in-place.
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
 # Arguments
 
   - `log_ratios`: an array of logarithms of importance ratios.
@@ -31,6 +31,9 @@ See [`psis!`](@ref) for version that smoothes the ratios in-place.
   - `sorted=issorted(log_ratios)`: whether `log_ratios` are already sorted.
   - `normalize=false`: whether to normalize the log weights so that
     `sum(exp.(low_weights)) ≈ 1`.
+  - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
+    If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
+    [^VehtariSimpson2021].
 
 # Returns
 
@@ -57,6 +60,17 @@ reliability and convergence of estimates using the importance weights [^VehtariS
     sample sizes.
 
 A warning is raised if ``k ≥ 0.7``.
+
+[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
+    Pareto smoothed importance sampling.
+    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+[^ZhangStephens2009]: Jin Zhang & Michael A. Stephens (2009)
+    A New and Efficient Estimation Method for the Generalized Pareto Distribution,
+    Technometrics, 51:3, 316-325,
+    DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
+[^Zhang2010]: Jin Zhang (2010) Improving on Estimation for the Generalized Pareto Distribution,
+    Technometrics, 52:3, 335-339,
+    DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
 function psis(logr, r_eff=1.0; kwargs...)
     T = float(eltype(logr))
@@ -72,7 +86,7 @@ In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
+function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved=false)
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
@@ -94,7 +108,7 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false)
             logw_tail .-= logw_max
             @inbounds logu = logw[perm[icut]] - logw_max
 
-            _, k_hat = psis_tail!(logw_tail, logu, M)
+            _, k_hat = psis_tail!(logw_tail, logu, M, improved)
             logw_tail .+= logw_max
 
             check_pareto_k(k_hat)
@@ -122,15 +136,16 @@ end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
 
-function psis_tail!(logw, logu, M=length(logw))
+function psis_tail!(logw, logu, M=length(logw), improved=false)
     T = eltype(logw)
     u = exp(logu)
-    w = (logw .= exp.(logw) .- u)
-    d_hat = fit(GeneralizedPareto, w; sorted=true)
-    k_hat = T(d_hat.k)
+    w = (logw .= exp.(logw))
+    d_hat = StatsBase.fit(GeneralizedParetoKnownMu(u), w; sorted=true, improved=improved)
+    d_hat = prior_adjust_shape(d_hat, M)
+    k_hat = Distributions.shape(d_hat)
     if isfinite(k_hat)
         p = uniform_probabilities(T, M)
-        logw .= min.(log.(quantile.(Ref(d_hat), p) .+ u), zero(T))
+        logw .= min.(log.(quantile.(Ref(d_hat), p)), zero(T))
     end
     return logw, k_hat
 end

@@ -1,99 +1,134 @@
-# Note: These internal functions are here to avoid a dependency on Distributions.jl,
-# which currently does not implement GPD fitting anyways. They are not methods of
-# functions in Statistics/StatsBase
+
+#
+# MLE
+#
 
 """
-    GeneralizedPareto{T<:Real}
+    GeneralizedParetoKnownMuTheta(μ, θ)
 
-The (zero-centered) generalized Pareto distribution.
-
-# Constructor
-
-    GeneralizedPareto(σ, k)
-
-Construct the generalized Pareto distribution (GPD) with scale parameter ``σ`` and shape
-parameter ``k``. Note that this ``k`` is equal to the commonly used shape parameter ``ξ``.
-This is the same parameterization used by [^VehtariSimpson2021] and is related to that used
-by [^ZhangStephens2009] as ``k \\mapsto -k``.
+Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` and ``\\theta=\\frac{\\xi}{\\sigma}`` are known.
 """
-struct GeneralizedPareto{T}
-    σ::T
-    k::T
+struct GeneralizedParetoKnownMuTheta{T} <: Distributions.IncompleteDistribution
+    μ::T
+    θ::T
 end
-GeneralizedPareto(σ, k) = GeneralizedPareto(Base.promote(σ, k)...)
+GeneralizedParetoKnownMuTheta(μ, θ) = GeneralizedParetoKnownMuTheta(Base.promote(μ, θ)...)
 
-"""
-    quantile(d::GeneralizedPareto, p)
-
-Compute the ``p``-quantile of the generalized Pareto distribution `d`.
-"""
-@inline function quantile(d::GeneralizedPareto, p)
-    k = d.k
-    z = -log1p(-p)
-    return iszero(k) ? d.σ * z : expm1(k * z) * (d.σ / k)
+struct GeneralizedParetoKnownMuThetaStats{T} <: Distributions.SufficientStats
+    μ::T  # known mean
+    θ::T  # known theta
+    ξ::T  # known shape
 end
 
+function Distributions.suffstats(d::GeneralizedParetoKnownMuTheta, x::AbstractArray)
+    μ = d.μ
+    θ = d.θ
+    ξ = mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of ξ
+    return GeneralizedParetoKnownMuThetaStats(μ, θ, ξ)
+end
+
+function Distributions.fit_mle(g::GeneralizedParetoKnownMuTheta, x::AbstractArray)
+    ss = Distributions.suffstats(g, x)
+    return Distributions.fit_mle(g, ss)
+end
+function Distributions.fit_mle(
+    d::GeneralizedParetoKnownMuTheta, ss::GeneralizedParetoKnownMuThetaStats
+)
+    ξ = ss.ξ
+    return Distributions.GeneralizedPareto(d.μ, ξ / d.θ, ξ)
+end
+
+#
+# empirical bayes
+#
+
 """
-    fit(T::Type{<:GeneralizedPareto}, x; kwargs...) -> ::T
+    GeneralizedParetoKnownMu(μ)
 
-Estimate a generalized Pareto distribution (GPD) given the points `x`.
+Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` is known.
+"""
+struct GeneralizedParetoKnownMu{T} <: Distributions.IncompleteDistribution
+    μ::T
+end
 
-Compute an empirical Bayes estimate of the parameters of the (zero-centered) GPD given the
-data `x` using the method described in [^ZhangStephens2009]. The method estimates ``θ = \\frac{σ}{k}``
+"""
+    fit(g::GeneralizedParetoKnownMu, x; kwargs...)
+
+Fit a [`GeneralizedPareto`](@ref) with known location `μ` to the data `x`.
+
+The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Zhang2010].
 
 # Keywords
 
-  - `sorted=false`: whether `x` is already sorted
-  - `min_points=30`: default number of points to use to compute estimate.
-    Instead of `min_points=20` as recommended by [^ZhangStephens2009], we use 30 points
-    as in the loo software. [^ZhangStephens2009] notes that the estimator is not sensitive
-    to this choice.
-  - `adjust_prior=true`: whether to apply the weakly informative Gaussian prior on `k`
-    suggested by [^VehtariSimpson2021] to reduce variance in the estimate of `k`.
+  - `sorted::Bool=issorted(x)`: If `true`, `x` is assumed to be sorted. If `false`, a sorted
+    copy of `x` is made.
+  - `improved::Bool=true`: If `true`, use the adaptive empirical prior of [^Zhang2010].
+    If `false`, use the simpler prior of [^ZhangStephens2009].
+  - `min_points::Int=30`: The minimum number of quadrature points to use when estimating the
+    posterior mean of ``\\theta = \\frac{\\xi}{\\sigma}``.
 
-[^ZhangStephens2009]: Zhang J & Stephens M A. (2009).
-    A new and efficient estimation method for the generalized Pareto distribution,
+[^ZhangStephens2009]: Jin Zhang & Michael A. Stephens (2009)
+    A New and Efficient Estimation Method for the Generalized Pareto Distribution,
     Technometrics, 51:3, 316-325,
     DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+[^Zhang2010]: Jin Zhang (2010) Improving on Estimation for the Generalized Pareto Distribution,
+    Technometrics, 52:3, 335-339,
+    DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function fit(::Type{<:GeneralizedPareto}, x; sorted=false, min_points=30, adjust_prior=true)
-    x = sorted ? x : sort(x)
-    n = length(x)
-    m = min_points + floor(Int, sqrt(n))
-    θ_hat = fit_θ(x, m)
-    k_hat = fit_k(x, θ_hat)
-    σ_hat = fit_σ(θ_hat, k_hat)
-    # NOTE: the paper is ambiguous whether the adjustment is applied to k_hat
-    # before or after computing σ_hat. From private discussion with Aki Vehtari,
-    # adjusting afterwards produces better results.
-    k_hat = adjust_prior ? prior_adjust_k(k_hat, n) : k_hat
-    return GeneralizedPareto(σ_hat, k_hat)
+function StatsBase.fit(g::GeneralizedParetoKnownMu, x::AbstractArray; kwargs...)
+    return fit_empiricalbayes(g, x; kwargs...)
 end
 
-# estimate θ̂ = ∫θp(θ|x)dθ using quadrature over m grid points
-# uniformly sampled over the empirical prior
-function fit_θ(x, m)
-    T = float(eltype(x))
-    n = length(x)
+# Note: our ξ is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
-    # construct empirical prior on y = 1/x[n] - θ
-    x_star = quartile(x, 1)
-    σ_star = inv(6 * x_star)
-    k_star = 1//2
-    y_prior = GeneralizedPareto(σ_star, k_star)
+function fit_empiricalbayes(
+    g::GeneralizedParetoKnownMu,
+    x::AbstractArray;
+    sorted::Bool=issorted(vec(x)),
+    improved::Bool=true,
+    min_points::Int=30,
+)
+    μ = g.μ
+    T = Base.promote_eltype(x, μ)
+    # fitting is faster when the data are sorted
+    xsorted = sorted ? vec(x) : sort(vec(x))
+    xmin, xmax = @inbounds xsorted[1], xsorted[end]
+    if xmin ≈ xmax
+        # support is nearly a point. solution is not unique; any solution satisfying the
+        # constraints σ/ξ ≈ 0 and ξ < 0 is acceptable. we choose the ξ = -1 solution, i.e.
+        # the uniform distribution
+        return Distributions.GeneralizedPareto(μ, max(eps(zero(T)), xmax - μ), -one(μ))
+    end
+    # estimate θ using empirical bayes
+    θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
+    # estimate remaining parameters using MLE
+    return Distributions.fit_mle(GeneralizedParetoKnownMuTheta(μ, θ_hat), xsorted)
+end
+
+# estimate θ̂ = ∫θp(θ|x,μ)dθ, i.e. the posterior mean using quadrature over grid
+# of minimum length `min_points + floor(sqrt(length(x)))` uniformly sampled over an
+# empirical prior
+function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
+    T = Base.promote_eltype(xsorted, μ)
+    n = length(xsorted)
+
+    # empirical prior on y = r/(xmax-μ) + θ
+    θ_prior = if improved
+        _gpd_empirical_prior_improved(μ, xsorted, n)
+    else
+        _gpd_empirical_prior(μ, xsorted, n)
+    end
 
     # quadrature points uniformly spaced on the quantiles of the θ prior
-    p = uniform_probabilities(T, m)
-    @inbounds θ = inv(x[n]) .- quantile.(Ref(y_prior), p)
+    npoints = min_points + floor(Int, sqrt(n))
+    p = uniform_probabilities(T, npoints)
+    θ = quantile.(Ref(θ_prior), p)
 
-    # compute mean θ over the m quadrature points
+    # estimate mean θ over the quadrature points
     # with weights as the normalized profile likelihood 
-    lθ = profile_loglikelihood.(θ, Ref(x), n)
+    lθ = _gpd_profile_loglikelihood.(μ, θ, Ref(xsorted), n)
     lθ_norm = logsumexp(lθ)
-    θ_hat = @inbounds sum(1:m) do j
+    θ_hat = @inbounds sum(1:npoints) do j
         wⱼ = exp(lθ[j] - lθ_norm)
         return θ[j] * wⱼ
     end
@@ -101,21 +136,43 @@ function fit_θ(x, m)
     return θ_hat
 end
 
-# Zhang & Stephens, Eq 7
-function fit_k(x, θ_hat)
-    nθ_hat = -θ_hat
-    return mean(xᵢ -> log1p(nθ_hat * xᵢ), x)
-end
-fit_σ(θ_hat, k_hat) = -k_hat / θ_hat
-
-# compute likelihood p(x|θ,k), estimating k from θ
-function profile_loglikelihood(θ, x, n=length(x))
-    # estimate k given θ
-    nk_est = -fit_k(x, θ)
-    return n * (log(θ / nk_est) + nk_est - 1)
+# Zhang & Stephens, 2009
+function _gpd_empirical_prior(μ, xsorted, n=length(x))
+    xmax = xsorted[n]
+    μ_star = -inv(xmax - μ)
+    x_25 = xsorted[fld(n + 2, 4)]
+    σ_star = inv(6 * (x_25 - μ))
+    ξ_star = 1//2
+    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
 end
 
-# reduce variance of estimated k using a weakly informative Gaussian prior
-# centered at `k_prior` corresponding to `nobs` observations
-# Vehtari et al, Appendix C
-prior_adjust_k(k, n, k_prior=1//2, nobs=10) = (n * k + nobs * k_prior) / (n + nobs)
+# Zhang, 2010
+function _gpd_empirical_prior_improved(μ, xsorted, n=length(x))
+    xmax = xsorted[n]
+    μ_star = -inv(xmax - μ) * ((n - 1)//(n + 1))
+    p = (3:9) ./ oftype(μ_star, 10)
+    q = [1 .- p; 1 .- p .^ 2]
+    xquantiles = if VERSION ≥ v"1.5.0"
+        quantile(xsorted, q; sorted=true, alpha=0, beta=1)
+    else
+        quantile(xsorted, q; sorted=true)
+    end
+    x1mp, x1mp2 = @views xquantiles[1:7], xquantiles[8:14]
+    expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
+    σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
+    σ_star = inv(2 * median(σp))
+    ξ_star = 1
+    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
+end
+
+# compute log joint likelihood p(x|μ,θ), with ξ the MLE given θ and x
+function _gpd_profile_loglikelihood(μ, θ, x, n=length(x))
+    g = GeneralizedParetoKnownMuTheta(μ, θ)
+    d = Distributions.fit_mle(g, x)
+    return -n * (log(d.σ) + d.ξ + 1)
+end
+
+function prior_adjust_shape(d::Distributions.GeneralizedPareto, n, ξ_prior=1//2, nobs=10)
+    ξ = (n * d.ξ + nobs * ξ_prior) / (n + nobs)
+    return Distributions.GeneralizedPareto(d.μ, d.σ, ξ)
+end

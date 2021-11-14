@@ -24,10 +24,10 @@ end
         @testset "Exponential($λ) → Exponential(1)" for (λ, klb, kub, rtol) in [
             (0.8, 0, 0.5, 0.02), (0.4, 0.5, 0.7, 0.05), (0.2, 0.7, 1, 0.3)
         ]
-            Random.seed!(42)
+            rng = MersenneTwister(42)
             proposal = Exponential(λ)
             target = Exponential(1)
-            x = rand(proposal, 10_000)
+            x = rand(rng, proposal, 10_000)
             logr = logpdf.(target, x) .- logpdf.(proposal, x)
             logr_norm = logsumexp(logr)
             @test sum(exp.(logr .- logr_norm) .* x) ≈ mean(target) rtol = rtol
@@ -130,7 +130,7 @@ end
         n = 10_000
         @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
             logr = randn(n)
-            logw, k = psis(logr, r_eff)
+            logw, k = psis(logr, r_eff; improved=false)
             @test !isapprox(logw, logr)
             logw_loo, k_loo = psis_loo(logr, r_eff)
             @test logw ≈ logw_loo
