@@ -1,8 +1,10 @@
 module PSIS
 
-using Statistics: mean
+using Distributions: Distributions
 using LinearAlgebra: dot
 using Printf: @sprintf
+using Statistics: mean, median, quantile
+using StatsBase: StatsBase
 
 export psis, psis!
 
@@ -125,12 +127,13 @@ tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
 function psis_tail!(logw, logu, M=length(logw))
     T = eltype(logw)
     u = exp(logu)
-    w = (logw .= exp.(logw) .- u)
-    d_hat = fit(GeneralizedPareto, w; sorted=true)
-    k_hat = T(d_hat.k)
+    w = (logw .= exp.(logw))
+    d_hat = StatsBase.fit(GeneralizedParetoKnownMu(u), w; sorted=true, improved=false)
+    d_hat = prior_adjust_shape(d_hat, M)
+    k_hat = Distributions.shape(d_hat)
     if isfinite(k_hat)
         p = uniform_probabilities(T, M)
-        logw .= min.(log.(quantile.(Ref(d_hat), p) .+ u), zero(T))
+        logw .= min.(log.(quantile.(Ref(d_hat), p)), zero(T))
     end
     return logw, k_hat
 end
