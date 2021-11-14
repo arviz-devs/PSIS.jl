@@ -31,7 +31,7 @@ See [`psis!`](@ref) for version that smoothes the ratios in-place.
   - `sorted=issorted(log_ratios)`: whether `log_ratios` are already sorted.
   - `normalize=false`: whether to normalize the log weights so that
     `sum(exp.(low_weights)) ≈ 1`.
-  - `improved=true`: If `true`, use the adaptive empirical prior of [^Zhang2010].
+  - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
 
@@ -86,7 +86,7 @@ In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved=true)
+function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved=false)
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
@@ -136,7 +136,7 @@ end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
 
-function psis_tail!(logw, logu, M=length(logw), improved=true)
+function psis_tail!(logw, logu, M=length(logw), improved=false)
     T = eltype(logw)
     u = exp(logu)
     w = (logw .= exp.(logw))
