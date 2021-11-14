@@ -2,6 +2,7 @@ module PSIS
 
 using Distributions: Distributions
 using LinearAlgebra: dot
+using LogExpFunctions: logsumexp
 using Printf: @sprintf
 using Statistics: mean, median, quantile
 using StatsBase: StatsBase
