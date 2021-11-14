@@ -19,9 +19,6 @@ struct GeneralizedParetoKnownMuThetaStats{T} <: Distributions.SufficientStats
     θ::T  # known theta
     ξ::T  # known shape
 end
-function GeneralizedParetoKnownMuThetaStats(μ, θ, ξ)
-    return GeneralizedParetoKnownMuThetaStats(Base.promote(μ, θ, ξ)...)
-end
 
 function Distributions.suffstats(d::GeneralizedParetoKnownMuTheta, x::AbstractArray)
     μ = d.μ
