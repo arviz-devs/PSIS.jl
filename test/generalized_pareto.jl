@@ -16,8 +16,16 @@ using Test
             dhat = fit(
                 PSIS.GeneralizedParetoKnownMu(μ), x; min_points=80, improved=improved
             )
+            @test dhat.μ == μ
             @test dhat.σ ≈ σ atol = 0.01
             @test dhat.ξ ≈ ξ atol = 0.01
+        end
+        @testset "nearly uniform" begin
+            x = ones(200_000)
+            dhat = fit(PSIS.GeneralizedParetoKnownMu(1.0), x; min_points=80)
+            @test dhat.μ == 1.0
+            @test dhat.σ ≈ eps(0.0)
+            @test dhat.ξ ≈ -1
         end
     end
 end
