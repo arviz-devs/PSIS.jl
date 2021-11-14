@@ -130,7 +130,7 @@ end
         n = 10_000
         @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
             logr = randn(n)
-            logw, k = psis(logr, r_eff)
+            logw, k = psis(logr, r_eff; improved=false)
             @test !isapprox(logw, logr)
             logw_loo, k_loo = psis_loo(logr, r_eff)
             @test logw ≈ logw_loo
