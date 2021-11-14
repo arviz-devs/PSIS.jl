@@ -5,14 +5,14 @@ using Test
 
 @testset "Generalized Pareto distribution" begin
     @testset "fit" begin
-        Random.seed!(42)
+        rng = MersenneTwister(42)
         @testset for μ in (-1, 5),
             σ in (0.5, 1.0, 2.0),
             ξ in (-1.0, 0.0, 0.3, 1.0, 2.0),
             improved in (true, false)
 
             d = GeneralizedPareto(μ, σ, ξ)
-            x = rand(d, 200_000)
+            x = rand(rng, d, 200_000)
             dhat = fit(
                 PSIS.GeneralizedParetoKnownMu(μ), x; min_points=80, improved=improved
             )
