@@ -97,7 +97,7 @@ function psis!(
     S = length(logw)
     k_hat = T(Inf)
 
-    M = tail_length(r_eff, S)
+    M = tail_length(only(r_eff), S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
