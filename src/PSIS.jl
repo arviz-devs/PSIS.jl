@@ -26,24 +26,28 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
     
       + `(ndraws,)`: a vector of draws for a single parameter from a single chain
       + `(ndraws, nchains)`: a matrix of draws for a single parameter from multiple chains
+      + `(nparams, ndraws, nchains)`: an array of draws for multiple parameters from
+        multiple chains
   - `r_eff`: the ratio of effective sample size of `log_ratios` and the actual sample size,
-    used to correct for autocorrelation due to MCMC. `r_eff=1` should be used if the ratios
-    were sampled independently.
+    used to correct for autocorrelation due to MCMC. If the ratios are known to be
+    uncorrelated, then provide `r_eff=ones(nparams)`.
 
 # Keywords
 
-  - `sorted=issorted(log_ratios)`: whether `log_ratios` are already sorted.
-  - `normalize=false`: whether to normalize the log weights so that
-    `sum(exp.(low_weights)) ≈ 1`.
+  - `sorted=issorted(vec(log_ratios))`: whether `log_ratios` are already sorted. Only
+    accepted if `nparams==1`.
+  - `normalize=false`: whether to normalize the log weights so that the resulting weights
+    for a given parameter sum to one.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
 
 # Returns
 
-  - `log_weights`: an array of smoothed log weights
-  - `k`: the estimated shape parameter ``k`` of the generalized Pareto distribution, which
-    is useful for diagnosing the distribution of importance ratios. See details below.
+  - `log_weights`: an array of smoothed log weights of the same size as `log_ratios`
+  - `k`: for each parameter, the estimated shape parameter ``k`` of the generalized Pareto
+    distribution, which is useful for diagnosing the distribution of importance ratios.
+    See details below.
 
 # Diagnostic
 
