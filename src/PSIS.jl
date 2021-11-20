@@ -17,11 +17,15 @@ include("generalized_pareto.jl")
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
-See [`psis!`](@ref) for version that smoothes the ratios in-place.
+See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 
 # Arguments
 
-  - `log_ratios`: an array of logarithms of importance ratios.
+  - `log_ratios`: an array of logarithms of importance ratios, with one of the following
+    sizes:
+    
+      + `(ndraws,)`: a vector of draws for a single parameter from a single chain
+      + `(ndraws, nchains)`: a matrix of draws for a single parameter from multiple chains
   - `r_eff`: the ratio of effective sample size of `log_ratios` and the actual sample size,
     used to correct for autocorrelation due to MCMC. `r_eff=1` should be used if the ratios
     were sampled independently.
@@ -101,18 +105,19 @@ function psis!(
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
-        perm = sorted ? eachindex(logw) : sortperm(logw)
-        @inbounds logw_max = logw[last(perm)]
+        logw_vec = vec(logw)
+        perm = sorted ? eachindex(logw_vec) : sortperm(logw_vec)
+        @inbounds logw_max = logw_vec[last(perm)]
         icut = S - M
         tail_range = (icut + 1):S
 
-        @inbounds logw_tail = @views logw[perm[tail_range]]
+        @inbounds logw_tail = @views logw_vec[perm[tail_range]]
         if logw_max - first(logw_tail) < eps(eltype(logw_tail)) / 100
             @warn "Cannot fit the generalized Pareto distribution because all tail " *
                 "values are the same"
         else
             logw_tail .-= logw_max
-            @inbounds logu = logw[perm[icut]] - logw_max
+            @inbounds logu = logw_vec[perm[icut]] - logw_max
 
             _, k_hat = psis_tail!(logw_tail, logu, M, improved)
             logw_tail .+= logw_max
