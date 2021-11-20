@@ -1,23 +1,10 @@
 using PSIS
 using Test
-using RCall
-using Distributions: Exponential, logpdf, mean
+using Random
+using ReferenceTests
+using Distributions: Normal, Cauchy, Exponential, logpdf, mean
 using LogExpFunctions: logsumexp
 using Logging: SimpleLogger, with_logger
-
-function has_loo()
-    R"has_loo <- require('loo')"
-    return @rget has_loo
-end
-
-function psis_loo(logr, r_eff=1.0)
-    R"""
-    res <- psis($logr, r_eff=$r_eff)
-    logw <- res$log_weights
-    k <- res$diagnostics$pareto_k
-    """
-    return vec(@rget(logw)), @rget(k)
-end
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
@@ -126,15 +113,32 @@ end
         @test isempty(msg)
     end
 
-    has_loo() && @testset "consistent with loo" begin
-        n = 10_000
-        @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
-            logr = randn(n)
-            logw, k = psis(logr, r_eff; improved=false)
+    @testset "test against reference values" begin
+        rng = MersenneTwister(42)
+        proposal = Normal()
+        target = Cauchy()
+        x = rand(rng, proposal, 1_000)
+        logr = logpdf.(target, x) .- logpdf.(proposal, x)
+        expected_khats = Dict(
+            (0.7, false) => 0.87563321,
+            (1.2, false) => 0.99029843,
+            (0.7, true) => 0.88650519,
+            (1.2, true) => 1.00664484,
+        )
+        @testset for r_eff in (0.7, 1.2), improved in (true, false)
+            logw, k = psis(logr, r_eff; improved=improved)
             @test !isapprox(logw, logr)
-            logw_loo, k_loo = psis_loo(logr, r_eff)
-            @test logw ≈ logw_loo
-            @test k ≈ k_loo
+            basename = "normal_to_cauchy_reff_$(r_eff)"
+            if improved
+                basename = basename * "_improved"
+            end
+            @test_reference(
+                "references/$basename.jld2",
+                Dict("data" => logw),
+                by = (ref, x) -> isapprox(ref["data"], x["data"]; rtol=1e-6),
+            )
+            k_ref = expected_khats[(r_eff, improved)]
+            @test k ≈ k_ref
         end
     end
 end
