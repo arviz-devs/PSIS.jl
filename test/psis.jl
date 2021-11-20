@@ -1,25 +1,10 @@
 using PSIS
 using Test
 using Random
-using RCall
 using ReferenceTests
 using Distributions: Normal, Cauchy, Exponential, logpdf, mean
 using LogExpFunctions: logsumexp
 using Logging: SimpleLogger, with_logger
-
-function has_loo()
-    R"has_loo <- require('loo')"
-    return @rget has_loo
-end
-
-function psis_loo(logr, r_eff=1.0)
-    R"""
-    res <- psis($logr, r_eff=$r_eff)
-    logw <- res$log_weights
-    k <- res$diagnostics$pareto_k
-    """
-    return vec(@rget(logw)), @rget(k)
-end
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
