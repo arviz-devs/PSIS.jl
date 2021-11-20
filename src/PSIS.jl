@@ -132,6 +132,16 @@ function psis!(
 
     return logw, k_hat
 end
+function psis!(logw::AbstractArray, r_eff::AbstractVector; kwargs...)
+    _, k_hat = @views psis!(logw[1, :, :], r_eff[1]; kwargs...)
+    # for arrays with named dimensions, this pattern ensures k_hat has the same names
+    k_hats = @views similar(logw[:, 1, 1], eltype(k_hat))
+    k_hats[1] = k_hat
+    Threads.@threads for i in eachindex(k_hats, r_eff)
+        _, k_hats[i] = @views psis!(logw[i, :, :], r_eff[i]; kwargs...)
+    end
+    return logw, k_hats
+end
 
 function check_pareto_k(k)
     if k ≥ 1
