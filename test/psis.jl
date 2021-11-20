@@ -119,15 +119,25 @@ using Logging: SimpleLogger, with_logger
         target = Cauchy()
         x = rand(rng, proposal, 1_000)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
-        @testset for ((r_eff,), k_ref) in ((0.7,) => 0.87563321, (1.2,) => 0.99029843)
-            logw, k = psis(logr, r_eff; improved=false)
+        expected_khats = Dict(
+            (0.7, false) => 0.87563321,
+            (1.2, false) => 0.99029843,
+            (0.7, true) => 0.88650519,
+            (1.2, true) => 1.00664484,
+        )
+        @testset for r_eff in (0.7, 1.2), improved in (true, false)
+            logw, k = psis(logr, r_eff; improved=improved)
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
+            if improved
+                basename = basename * "_improved"
+            end
             @test_reference(
                 "references/$basename.jld2",
                 Dict("data" => logw),
                 by = (ref, x) -> isapprox(ref["data"], x["data"]; rtol=1e-6),
             )
+            k_ref = expected_khats[(r_eff, improved)]
             @test k ≈ k_ref
         end
     end
