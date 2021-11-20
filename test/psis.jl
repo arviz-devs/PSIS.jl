@@ -1,7 +1,9 @@
 using PSIS
 using Test
+using Random
 using RCall
-using Distributions: Exponential, logpdf, mean
+using ReferenceTests
+using Distributions: Normal, Cauchy, Exponential, logpdf, mean
 using LogExpFunctions: logsumexp
 using Logging: SimpleLogger, with_logger
 
@@ -126,15 +128,22 @@ end
         @test isempty(msg)
     end
 
-    has_loo() && @testset "consistent with loo" begin
-        n = 10_000
-        @testset for r_eff in [0.1, 0.5, 0.9, 1.0, 1.2]
-            logr = randn(n)
+    @testset "test against reference values" begin
+        rng = MersenneTwister(42)
+        proposal = Normal()
+        target = Cauchy()
+        x = rand(rng, proposal, 1_000)
+        logr = logpdf.(target, x) .- logpdf.(proposal, x)
+        @testset for ((r_eff,), k_ref) in ((0.7,) => 0.87563321, (1.2,) => 0.99029843)
             logw, k = psis(logr, r_eff; improved=false)
             @test !isapprox(logw, logr)
-            logw_loo, k_loo = psis_loo(logr, r_eff)
-            @test logw ≈ logw_loo
-            @test k ≈ k_loo
+            basename = "normal_to_cauchy_reff_$(r_eff)"
+            @test_reference(
+                "references/$basename.jld2",
+                Dict("data" => logw),
+                by = (ref, x) -> isapprox(ref["data"], x["data"]; rtol=1e-6),
+            )
+            @test k ≈ k_ref
         end
     end
 end
