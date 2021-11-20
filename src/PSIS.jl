@@ -145,7 +145,9 @@ function psis_tail!(logw, logu, M=length(logw), improved=false)
     k_hat = Distributions.shape(d_hat)
     if isfinite(k_hat)
         p = uniform_probabilities(T, M)
-        logw .= min.(log.(quantile.(Ref(d_hat), p)), zero(T))
+        @inbounds for i in eachindex(logw, p)
+            logw[i] = min(log(_quantile(d_hat, p[i])), 0)
+        end
     end
     return logw, k_hat
 end
