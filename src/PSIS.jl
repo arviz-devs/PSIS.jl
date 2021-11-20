@@ -79,7 +79,7 @@ function psis(logr, r_eff; kwargs...)
 end
 
 """
-    psis!(args...; kwargs...)
+    psis!(args, r_eff; kwargs...)
 
 In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 
