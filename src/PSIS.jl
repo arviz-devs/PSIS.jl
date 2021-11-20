@@ -72,7 +72,7 @@ A warning is raised if ``k ≥ 0.7``.
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function psis(logr, r_eff=1.0; kwargs...)
+function psis(logr, r_eff; kwargs...)
     T = float(eltype(logr))
     logw = copyto!(similar(logr, T), logr)
     return psis!(logw, r_eff; kwargs...)
@@ -86,7 +86,13 @@ In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved=false)
+function psis!(
+    logw::AbstractVecOrMat,
+    r_eff;
+    sorted=issorted(vec(logw)),
+    normalize=false,
+    improved=false,
+)
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
