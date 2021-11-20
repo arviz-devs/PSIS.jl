@@ -1,4 +1,11 @@
 
+function _quantile(d::Distributions.GeneralizedPareto{T}, p::Real) where {T<:Real}
+    (μ, σ, ξ) = Distributions.params(d)
+    nlog1pp = -log1p(-p * one(T))
+    z = abs(ξ) < eps() ? nlog1pp : expm1(ξ * nlog1pp) / ξ
+    return muladd(σ, z, μ)
+end
+
 #
 # MLE
 #
@@ -89,15 +96,16 @@ function fit_empiricalbayes(
     min_points::Int=30,
 )
     μ = g.μ
-    T = Base.promote_eltype(x, μ)
     # fitting is faster when the data are sorted
     xsorted = sorted ? vec(x) : sort(vec(x))
-    xmin, xmax = @inbounds xsorted[1], xsorted[end]
+    xmin = first(xsorted)
+    xmax = last(xsorted)
     if xmin ≈ xmax
         # support is nearly a point. solution is not unique; any solution satisfying the
         # constraints σ/ξ ≈ 0 and ξ < 0 is acceptable. we choose the ξ = -1 solution, i.e.
         # the uniform distribution
-        return Distributions.GeneralizedPareto(μ, max(eps(zero(T)), xmax - μ), -one(μ))
+        σ = xmax - μ
+        return Distributions.GeneralizedPareto(μ, max(eps(zero(σ)), σ), -1)
     end
     # estimate θ using empirical bayes
     θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
@@ -122,11 +130,11 @@ function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # quadrature points uniformly spaced on the quantiles of the θ prior
     npoints = min_points + floor(Int, sqrt(n))
     p = uniform_probabilities(T, npoints)
-    θ = quantile.(Ref(θ_prior), p)
+    θ = map(Base.Fix1(_quantile, θ_prior), p)
 
     # estimate mean θ over the quadrature points
-    # with weights as the normalized profile likelihood 
-    lθ = _gpd_profile_loglikelihood.(μ, θ, Ref(xsorted), n)
+    # with weights as the normalized profile likelihood
+    lθ = map(θ -> _gpd_profile_loglikelihood(μ, θ, xsorted, n), θ)
     lθ_norm = logsumexp(lθ)
     θ_hat = @inbounds sum(1:npoints) do j
         wⱼ = exp(lθ[j] - lθ_norm)
@@ -137,27 +145,27 @@ function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
 end
 
 # Zhang & Stephens, 2009
-function _gpd_empirical_prior(μ, xsorted, n=length(x))
+function _gpd_empirical_prior(μ, xsorted, n=length(xsorted))
     xmax = xsorted[n]
     μ_star = -inv(xmax - μ)
-    x_25 = xsorted[fld(n + 2, 4)]
+    x_25 = xsorted[max(fld(n + 2, 4), 1)]
     σ_star = inv(6 * (x_25 - μ))
     ξ_star = 1//2
     return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
 end
 
 # Zhang, 2010
-function _gpd_empirical_prior_improved(μ, xsorted, n=length(x))
+function _gpd_empirical_prior_improved(μ, xsorted, n=length(xsorted))
     xmax = xsorted[n]
-    μ_star = -inv(xmax - μ) * ((n - 1)//(n + 1))
-    p = (3:9) ./ oftype(μ_star, 10)
-    q = [1 .- p; 1 .- p .^ 2]
-    xquantiles = if VERSION ≥ v"1.5.0"
-        quantile(xsorted, q; sorted=true, alpha=0, beta=1)
-    else
-        quantile(xsorted, q; sorted=true)
-    end
-    x1mp, x1mp2 = @views xquantiles[1:7], xquantiles[8:14]
+    μ_star = (n - 1) / ((n + 1) * (μ - xmax))
+    p = (3//10, 2//5, 1//2, 3//5, 7//10, 4//5, 9//10)  # 0.3:0.1:0.9
+    q1 = (7, 6, 5, 4, 3, 2, 1)  # 10 .* (1 .- p)
+    q2 = (91, 84, 75, 64, 51, 36, 19)  # 100 .* (1 .- p .^ 2)
+    # q1/10- and q2/100- quantiles of xsorted without interpolation,
+    # i.e. the α-quantile of x without interpolation is x[max(1, floor(Int, α * n + 1/2))]
+    twon = 2 * n
+    x1mp = map(qi -> xsorted[max(1, fld(qi * twon + 1, 20))], q1)
+    x1mp2 = map(qi -> xsorted[max(1, fld(qi * twon + 1, 200))], q2)
     expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
     σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
     σ_star = inv(2 * median(σp))
