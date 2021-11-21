@@ -133,16 +133,18 @@ using Logging: SimpleLogger, with_logger
         rng = MersenneTwister(42)
         proposal = Normal()
         target = Cauchy()
-        x = rand(rng, proposal, 1_000)
+        sz = (5, 1_000, 4)
+        x = rand(rng, proposal, sz)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
         expected_khats = Dict(
-            (0.7, false) => 0.87563321,
-            (1.2, false) => 0.99029843,
-            (0.7, true) => 0.88650519,
-            (1.2, true) => 1.00664484,
+            (0.7, false) => [0.45848943, 0.73939023, 0.64318395, 0.8255847, 0.87575057],
+            (1.2, false) => [0.42288872, 0.6686345, 0.73749322, 0.76318927, 0.83505587],
+            (0.7, true) => [0.45334008, 0.74012806, 0.64558096, 0.82759211, 0.8813605],
+            (1.2, true) => [0.4225601, 0.67035541, 0.74046699, 0.76625258, 0.8395082],
         )
         @testset for r_eff in (0.7, 1.2), improved in (true, false)
-            logw, k = psis(logr, r_eff; improved=improved)
+            r_effs = fill(r_eff, sz[1])
+            logw, k = psis(logr, r_effs; improved=improved)
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
             if improved
