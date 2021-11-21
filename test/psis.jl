@@ -46,13 +46,18 @@ using Logging: SimpleLogger, with_logger
         end
 
         @testset "normalize=true" begin
-            x = randn(100)
-            lw1, k1 = psis(x)
-            lw2, k2 = psis(x; normalize=true)
-            @test k1 == k2
-            @test !(lw1 ≈ lw2)
-            @test all(abs.(diff(lw1 .- lw2)) .< sqrt(eps()))
-            @test sum(exp.(lw2)) ≈ 1
+            @testset for sz in (100, (100, 4), (5, 100, 4))
+                dims = length(sz) == 3 ? (2, 3) : Colon()
+                r_eff = length(sz) == 3 ? ones(sz[1]) : 1.0
+                x = randn(sz)
+                lw1, k1 = psis(x, r_eff)
+                lw2, k2 = psis(x, r_eff; normalize=true)
+                @test k1 ≈ k2
+                @test !(lw1 ≈ lw2)
+
+                @test all(abs.(diff(lw1 .- lw2; dims=length(sz))) .< sqrt(eps()))
+                @test all(≈(1), sum(exp, lw2; dims=dims))
+            end
         end
     end
 
