@@ -3,26 +3,37 @@ using Test
 using Random
 using ReferenceTests
 using Distributions: Normal, Cauchy, Exponential, logpdf, mean
-using LogExpFunctions: logsumexp
+using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
-        @testset "Exponential($λ) → Exponential(1)" for (λ, klb, kub, rtol) in [
-            (0.8, 0, 0.5, 0.02), (0.4, 0.5, 0.7, 0.05), (0.2, 0.7, 1, 0.3)
+        target = Exponential(1)
+        x_target = 1  # 𝔼[x] with x ~ Exponential(1)
+        x²_target = 2  # 𝔼[x²] with x ~ Exponential(1)
+        # For θ < 1, the closed-form distribution of importance ratios with ξ = 1 - θ is
+        # GeneralizedPareto(θ, θ * ξ, ξ), and the closed-form distribution of tail ratios is
+        # GeneralizedPareto(5^ξ * θ, θ * ξ, ξ).
+        # For θ < 0.5, the tail distribution has no variance, and estimates with importance
+        # weights become unstable
+        @testset "Exponential($θ) → Exponential(1)" for (θ, atol) in [
+            (0.8, 0.02), (0.55, 0.2), (0.3, 0.6)
         ]
-            rng = MersenneTwister(42)
-            proposal = Exponential(λ)
-            target = Exponential(1)
-            x = rand(rng, proposal, 10_000)
-            logr = logpdf.(target, x) .- logpdf.(proposal, x)
-            logr_norm = logsumexp(logr)
-            @test sum(exp.(logr .- logr_norm) .* x) ≈ mean(target) rtol = rtol
+            proposal = Exponential(θ)
+            ξ_exp = 1 - θ
+            for sz in ((100_000,), (100_000, 4), (5, 100_000, 4))
+                dims = length(sz) == 3 ? (2, 3) : Colon()
+                r_eff = length(sz) == 3 ? ones(sz[1]) : 1.0
+                rng = MersenneTwister(42)
+                x = rand(rng, proposal, sz)
+                logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-            logw, k = psis(logr)
-            @test klb < k < kub
-            logw_norm = logsumexp(logw)
-            @test sum(exp.(logw .- logw_norm) .* x) ≈ mean(target) rtol = rtol
+                logw, k = psis(logr, r_eff)
+                w = softmax(logr; dims=dims)
+                @test all(≈(ξ_exp; atol=0.1), k)
+                @test all(≈(x_target; atol=atol), sum(x .* w; dims=dims))
+                @test all(≈(x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims))
+            end
         end
     end
 
