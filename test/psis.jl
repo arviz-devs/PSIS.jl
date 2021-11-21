@@ -19,20 +19,20 @@ using AxisKeys: AxisKeys
         # For θ < 0.5, the tail distribution has no variance, and estimates with importance
         # weights become unstable
         @testset "Exponential($θ) → Exponential(1)" for (θ, atol) in [
-            (0.8, 0.02), (0.55, 0.2), (0.3, 0.6)
+            (0.8, 0.05), (0.55, 0.2), (0.3, 0.7)
         ]
             proposal = Exponential(θ)
             ξ_exp = 1 - θ
-            for sz in ((100_000,), (100_000, 4), (5, 100_000, 4))
-                dims = length(sz) == 3 ? (2, 3) : Colon()
-                r_eff = length(sz) == 3 ? ones(sz[1]) : 1.0
+            for sz in ((100_000,), (5, 100_000), (5, 100_000, 4))
+                dims = length(sz) == 1 ? Colon() : 2:length(sz)
+                r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
                 rng = MersenneTwister(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
                 logw, k = psis(logr, r_eff)
                 w = softmax(logr; dims=dims)
-                @test all(≈(ξ_exp; atol=0.1), k)
+                @test all(≈(ξ_exp; atol=0.15), k)
                 @test all(≈(x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(≈(x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims))
             end
@@ -48,9 +48,9 @@ using AxisKeys: AxisKeys
         end
 
         @testset "normalize=true" begin
-            @testset for sz in (100, (100, 4), (5, 100, 4))
-                dims = length(sz) == 3 ? (2, 3) : Colon()
-                r_eff = length(sz) == 3 ? ones(sz[1]) : 1.0
+            @testset for sz in (100, (5, 100), (5, 100, 4))
+                dims = length(sz) == 1 ? Colon() : 2:length(sz)
+                r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
                 x = randn(sz)
                 lw1, k1 = psis(x, r_eff)
                 lw2, k2 = psis(x, r_eff; normalize=true)
