@@ -30,8 +30,8 @@ using Logging: SimpleLogger, with_logger
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
-            @test psis(x)[1] == invpermute!(psis(x[perm]; sorted=true)[1], perm)
-            @test psis(x)[2] == psis(x[perm]; sorted=true)[2]
+            @test psis(x, 1.0)[1] == invpermute!(psis(x[perm], 1.0; sorted=true)[1], perm)
+            @test psis(x, 1.0)[2] == psis(x[perm], 1.0; sorted=true)[2]
         end
 
         @testset "normalize=true" begin
@@ -49,7 +49,7 @@ using Logging: SimpleLogger, with_logger
         io = IOBuffer()
         logr = randn(5)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
+            psis(logr, 1.0)
         end
         @test logw == logr
         @test isinf(k)
@@ -62,7 +62,7 @@ using Logging: SimpleLogger, with_logger
         io = IOBuffer()
         logr = ones(100)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
+            psis(logr, 1.0)
         end
         @test logw == logr
         @test isinf(k)
@@ -76,7 +76,7 @@ using Logging: SimpleLogger, with_logger
         x = rand(Exponential(100), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
+            psis(logr, 1.0)
         end
         @test logw != logr
         @test k > 0.7
