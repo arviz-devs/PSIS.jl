@@ -17,29 +17,38 @@ include("generalized_pareto.jl")
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
-See [`psis!`](@ref) for version that smoothes the ratios in-place.
+See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 
 # Arguments
 
-  - `log_ratios`: an array of logarithms of importance ratios.
+  - `log_ratios`: an array of logarithms of importance ratios, with one of the following
+    sizes:
+    
+      + `(ndraws,)`: a vector of draws for a single parameter from a single chain
+      + `(nparams, ndraws)`: a matrix of draws for a multiple parameter from a single chain
+      + `(nparams, ndraws, nchains)`: an array of draws for multiple parameters from
+        multiple chains, e.g. as might be generated with Markov chain Monte Carlo.
+
   - `r_eff`: the ratio of effective sample size of `log_ratios` and the actual sample size,
-    used to correct for autocorrelation due to MCMC. `r_eff=1` should be used if the ratios
-    were sampled independently.
+    used to account for autocorrelation, e.g. due to Markov chain Monte Carlo. If the ratios
+    are known to be uncorrelated, then provide `r_eff=ones(nparams)`.
 
 # Keywords
 
-  - `sorted=issorted(log_ratios)`: whether `log_ratios` are already sorted.
-  - `normalize=false`: whether to normalize the log weights so that
-    `sum(exp.(low_weights)) ≈ 1`.
+  - `sorted=issorted(vec(log_ratios))`: whether `log_ratios` are already sorted. Only
+    accepted if `nparams==1`.
+  - `normalize=false`: whether to normalize the log weights so that the resulting weights
+    for a given parameter sum to one.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
 
 # Returns
 
-  - `log_weights`: an array of smoothed log weights
-  - `k`: the estimated shape parameter ``k`` of the generalized Pareto distribution, which
-    is useful for diagnosing the distribution of importance ratios. See details below.
+  - `log_weights`: an array of smoothed log weights of the same size as `log_ratios`
+  - `k`: for each parameter, the estimated shape parameter ``k`` of the generalized Pareto
+    distribution, which is useful for diagnosing the distribution of importance ratios.
+    See details below.
 
 # Diagnostic
 
@@ -72,26 +81,28 @@ A warning is raised if ``k ≥ 0.7``.
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function psis(logr, r_eff=1.0; kwargs...)
+function psis(logr, r_eff; kwargs...)
     T = float(eltype(logr))
     logw = copyto!(similar(logr, T), logr)
     return psis!(logw, r_eff; kwargs...)
 end
 
 """
-    psis!(args...; kwargs...)
+    psis!(args, r_eff; kwargs...)
 
 In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved=false)
+function psis!(
+    logw::AbstractVector, r_eff; sorted=issorted(logw), normalize=false, improved=false
+)
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
 
-    M = tail_length(r_eff, S)
+    M = tail_length(only(r_eff), S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
@@ -120,6 +131,17 @@ function psis!(logw, r_eff=1.0; sorted=issorted(logw), normalize=false, improved
     end
 
     return logw, k_hat
+end
+function psis!(logw::AbstractArray, r_eff; kwargs...)
+    # support both 2D and 3D arrays, flattening the final dimension
+    _, k_hat = psis!(vec(selectdim(logw, 1, 1)), r_eff[1]; kwargs...)
+    # for arrays with named dimensions, this pattern ensures k_hat has the same names
+    k_hats = similar(view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...), eltype(k_hat))
+    k_hats[1] = k_hat
+    Threads.@threads for i in eachindex(k_hats, r_eff)
+        _, k_hats[i] = psis!(vec(selectdim(logw, 1, i)), r_eff[i]; kwargs...)
+    end
+    return logw, k_hats
 end
 
 function check_pareto_k(k)
