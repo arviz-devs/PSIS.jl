@@ -28,6 +28,7 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
       + `(ndraws, nchains)`: a matrix of draws for a single parameter from multiple chains
       + `(nparams, ndraws, nchains)`: an array of draws for multiple parameters from
         multiple chains
+
   - `r_eff`: the ratio of effective sample size of `log_ratios` and the actual sample size,
     used to correct for autocorrelation due to MCMC. If the ratios are known to be
     uncorrelated, then provide `r_eff=ones(nparams)`.
