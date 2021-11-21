@@ -25,7 +25,7 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
     sizes:
     
       + `(ndraws,)`: a vector of draws for a single parameter from a single chain
-      + `(ndraws, nchains)`: a matrix of draws for a single parameter from multiple chains
+      + `(nparams, ndraws)`: a matrix of draws for a multiple parameter from a single chain
       + `(nparams, ndraws, nchains)`: an array of draws for multiple parameters from
         multiple chains
 
@@ -96,11 +96,7 @@ See [`psis`](@ref) for an out-of-place version and for description of arguments 
 values.
 """
 function psis!(
-    logw::AbstractVecOrMat,
-    r_eff;
-    sorted=issorted(vec(logw)),
-    normalize=false,
-    improved=false,
+    logw::AbstractVector, r_eff; sorted=issorted(logw), normalize=false, improved=false
 )
     T = eltype(logw)
     S = length(logw)
@@ -110,19 +106,18 @@ function psis!(
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
-        logw_vec = vec(logw)
-        perm = sorted ? eachindex(logw_vec) : sortperm(logw_vec)
-        @inbounds logw_max = logw_vec[last(perm)]
+        perm = sorted ? eachindex(logw) : sortperm(logw)
+        @inbounds logw_max = logw[last(perm)]
         icut = S - M
         tail_range = (icut + 1):S
 
-        @inbounds logw_tail = @views logw_vec[perm[tail_range]]
+        @inbounds logw_tail = @views logw[perm[tail_range]]
         if logw_max - first(logw_tail) < eps(eltype(logw_tail)) / 100
             @warn "Cannot fit the generalized Pareto distribution because all tail " *
                 "values are the same"
         else
             logw_tail .-= logw_max
-            @inbounds logu = logw_vec[perm[icut]] - logw_max
+            @inbounds logu = logw[perm[icut]] - logw_max
 
             _, k_hat = psis_tail!(logw_tail, logu, M, improved)
             logw_tail .+= logw_max
@@ -137,13 +132,14 @@ function psis!(
 
     return logw, k_hat
 end
-function psis!(logw::AbstractArray, r_eff::AbstractVector; kwargs...)
-    _, k_hat = @views psis!(logw[1, :, :], r_eff[1]; kwargs...)
+function psis!(logw::AbstractArray, r_eff; kwargs...)
+    # support both 2D and 3D arrays, flattening the final dimension
+    _, k_hat = psis!(vec(selectdim(logw, 1, 1)), r_eff[1]; kwargs...)
     # for arrays with named dimensions, this pattern ensures k_hat has the same names
-    k_hats = @views similar(logw[:, 1, 1], eltype(k_hat))
+    k_hats = similar(view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...), eltype(k_hat))
     k_hats[1] = k_hat
     Threads.@threads for i in eachindex(k_hats, r_eff)
-        _, k_hats[i] = @views psis!(logw[i, :, :], r_eff[i]; kwargs...)
+        _, k_hats[i] = psis!(vec(selectdim(logw, 1, i)), r_eff[i]; kwargs...)
     end
     return logw, k_hats
 end
