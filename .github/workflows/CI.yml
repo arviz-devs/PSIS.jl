@@ -25,6 +25,9 @@ jobs:
         num_threads:
           - 1
           - 2
+        exclude:
+          - version: '1.0'
+            num_threads: 2
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
