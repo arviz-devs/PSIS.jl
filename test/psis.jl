@@ -2,7 +2,7 @@ using PSIS
 using Test
 using Random
 using ReferenceTests
-using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean
+using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean, shape
 using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
@@ -81,10 +81,29 @@ end
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
                 r = psis(logr)
+                @test r isa PSISResult
                 logw = r.log_weights
-                k = r.pareto_shape
-                w = softmax(logr; dims=dims)
-                @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
+                @test logw isa typeof(logr)
+
+                if length(sz) == 3
+                    @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
+                else
+                    @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
+                end
+
+                ξ = r.pareto_shape
+                @test ξ isa (length(sz) == 1 ? Number : AbstractVector)
+                tail_dist = r.tail_dist
+                if length(sz) == 1
+                    @test tail_dist isa GeneralizedPareto
+                    @test shape(tail_dist) == ξ
+                else
+                    @test tail_dist isa Vector{<:GeneralizedPareto}
+                    @test map(shape, tail_dist) == ξ
+                end
+
+                w = r.weights
+                @test all(x -> isapprox(x, ξ_exp; atol=0.15), ξ)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(
                     x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
@@ -110,6 +129,7 @@ end
             psis(logr)
         end
         @test result.log_weights == logr
+        @test ismissing(result.tail_dist)
         @test ismissing(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
@@ -207,8 +227,11 @@ end
             result = psis(logr)
             @test result.log_weights isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
-            @test result.pareto_shape isa AxisArrays.AxisArray
-            @test AxisArrays.axes(result.pareto_shape) == (AxisArrays.axes(logr, 1),)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
+                prop = getproperty(result, k)
+                @test prop isa AxisArrays.AxisArray
+                @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 1),)
+            end
         end
     end
 end
