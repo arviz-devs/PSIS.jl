@@ -49,22 +49,6 @@ using AxisArrays: AxisArrays
                 invpermute!(psis(x[perm]; sorted=true).log_weights, perm)
             @test psis(x).pareto_shape == psis(x[perm]; sorted=true).pareto_shape
         end
-
-        @testset "normalize=true" begin
-            @testset for sz in (100, (5, 100), (5, 100, 4))
-                dims = length(sz) == 1 ? Colon() : 2:length(sz)
-                x = randn(sz)
-                lw1, k1 = psis(x)
-                lw2, k2 = psis(x; normalize=true)
-                @test k1 ≈ k2
-                @test !(lw1 ≈ lw2)
-
-                if VERSION ≥ v"1.1"
-                    @test all(abs.(diff(lw1 - lw2; dims=length(sz))) .< sqrt(eps()))
-                end
-                @test all(x -> isapprox(x, 1), sum(exp.(lw2); dims=dims))
-            end
-        end
     end
 
     @testset "warnings" begin
@@ -78,19 +62,6 @@ using AxisArrays: AxisArrays
         msg = String(take!(io))
         @test occursin(
             "Warning: Insufficient tail draws to fit the generalized Pareto distribution",
-            msg,
-        )
-
-        io = IOBuffer()
-        logr = ones(100)
-        logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
-        end
-        @test logw == logr
-        @test isinf(k)
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: Cannot fit the generalized Pareto distribution because all tail values are the same",
             msg,
         )
 
