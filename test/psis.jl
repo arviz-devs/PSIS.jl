@@ -157,5 +157,6 @@ using AxisArrays: AxisArrays
             @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
             @test result.pareto_shape isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.pareto_shape) == (AxisArrays.axes(logr, 1),)
+        end
     end
 end
