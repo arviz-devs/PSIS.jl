@@ -102,7 +102,8 @@ function psis!(
     S = length(logw)
     k_hat = T(Inf)
 
-    M = tail_length(only(r_eff), S)
+    @assert isone(length(r_eff)) # support numbers or single-element array
+    M = tail_length(first(r_eff), S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
