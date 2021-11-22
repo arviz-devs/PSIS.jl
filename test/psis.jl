@@ -6,7 +6,6 @@ using Distributions: Normal, Cauchy, Exponential, logpdf, mean
 using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
-using AxisKeys: AxisKeys
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
@@ -32,9 +31,11 @@ using AxisKeys: AxisKeys
 
                 logw, k = psis(logr, r_eff)
                 w = softmax(logr; dims=dims)
-                @test all(≈(ξ_exp; atol=0.15), k)
-                @test all(≈(x_target; atol=atol), sum(x .* w; dims=dims))
-                @test all(≈(x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims))
+                @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
+                @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
+                @test all(
+                    x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
+                )
             end
         end
     end
@@ -57,8 +58,10 @@ using AxisKeys: AxisKeys
                 @test k1 ≈ k2
                 @test !(lw1 ≈ lw2)
 
-                @test all(abs.(diff(lw1 .- lw2; dims=length(sz))) .< sqrt(eps()))
-                @test all(≈(1), sum(exp, lw2; dims=dims))
+                if VERSION ≥ v"1.1"
+                    @test all(abs.(diff(lw1 - lw2; dims=length(sz))) .< sqrt(eps()))
+                end
+                @test all(x -> isapprox(x, 1), sum(exp.(lw2); dims=dims))
             end
         end
     end
@@ -181,20 +184,6 @@ using AxisKeys: AxisKeys
             @test AxisArrays.axes(logw) == AxisArrays.axes(logr)
             @test k isa AxisArrays.AxisArray
             @test AxisArrays.axes(k) == (AxisArrays.axes(logr, 1),)
-        end
-
-        @testset "AxisKeys" begin
-            logr = AxisKeys.KeyedArray(
-                x; param=param_names, iter=iter_names, chain=chain_names
-            )
-            r_eff = ones(10)
-            logw, k = psis(logr, r_eff)
-            @test logw isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(logw) == AxisKeys.dimnames(logr)
-            @test AxisKeys.axiskeys(logw) == AxisKeys.axiskeys(logr)
-            @test k isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(k) == (:param,)
-            @test AxisKeys.axiskeys(k) == (param_names,)
         end
     end
 end
