@@ -67,9 +67,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     println(io, typeof(r), ":")
-    println(io, "    (nparams, ndraws, nchains): ", (r.nparams, r.ndraws, r.nchains))
-    print(io, "    r_eff: ", r.r_eff)
-    print(io, "\n    pareto_shape: ", r.pareto_shape)
+    print(io, "    pareto_shape: ", r.pareto_shape)
     return nothing
 end
 
