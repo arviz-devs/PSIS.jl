@@ -144,13 +144,14 @@ function psis!(logw::AbstractArray, r_eff; kwargs...)
     return logw, k_hats
 end
 
-function check_pareto_k(k)
-    if k ≥ 1
-        @warn "Pareto k=$(@sprintf("%.2g", k)) ≥ 1. Resulting importance sampling " *
+function check_pareto_shape(dist::Distributions.GeneralizedPareto)
+    ξ = pareto_shape(dist)
+    if ξ ≥ 1
+        @warn "Pareto shape=$(@sprintf("%.2g", ξ)) ≥ 1. Resulting importance sampling " *
             "estimates are likely to be unstable and are unlikely to converge with " *
             "additional samples."
-    elseif k ≥ 0.7
-        @warn "Pareto k=$(@sprintf("%.2g", k)) ≥ 0.7. Resulting importance sampling " *
+    elseif ξ ≥ 0.7
+        @warn "Pareto shape=$(@sprintf("%.2g", ξ)) ≥ 0.7. Resulting importance sampling " *
             "estimates are likely to be unstable."
     end
     return nothing
