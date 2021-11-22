@@ -205,6 +205,11 @@ function psis!(logw::AbstractArray, r_eff; kwargs...)
     return logw, k_hats
 end
 
+pareto_shape(::Missing) = missing
+pareto_shape(dist::Distributions.GeneralizedPareto) = Distributions.shape(dist)
+pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
+pareto_shape(dists) = map(pareto_shape, dists)
+
 function check_pareto_shape(dist::Distributions.GeneralizedPareto)
     ξ = pareto_shape(dist)
     if ξ ≥ 1
