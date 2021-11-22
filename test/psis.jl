@@ -31,9 +31,11 @@ using AxisArrays: AxisArrays
 
                 logw, k = psis(logr, r_eff)
                 w = softmax(logr; dims=dims)
-                @test all(≈(ξ_exp; atol=0.15), k)
-                @test all(≈(x_target; atol=atol), sum(x .* w; dims=dims))
-                @test all(≈(x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims))
+                @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
+                @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
+                @test all(
+                    x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
+                )
             end
         end
     end
@@ -56,8 +58,10 @@ using AxisArrays: AxisArrays
                 @test k1 ≈ k2
                 @test !(lw1 ≈ lw2)
 
-                @test all(abs.(diff(lw1 .- lw2; dims=length(sz))) .< sqrt(eps()))
-                @test all(≈(1), sum(exp, lw2; dims=dims))
+                if VERSION ≥ v"1.1"
+                    @test all(abs.(diff(lw1 - lw2; dims=length(sz))) .< sqrt(eps()))
+                end
+                @test all(x -> isapprox(x, 1), sum(exp.(lw2); dims=dims))
             end
         end
     end
