@@ -32,7 +32,24 @@ Result of Pareto-smoothed importance sampling (PSIS).
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
     `log_weights`
 
-See [`psis`](@ref) for a description of how to use `pareto_shape` as a diagnostic.
+# Diagnostic
+
+The `pareto_shape` parameter ``k=ξ`` of the generalized Pareto distribution `tail_dist` can
+be used to diagnose reliability and convergence of estimates using the importance weights
+[^VehtariSimpson2021]:
+
+  - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
+    PSIS both are reliable.
+  - if ``k < \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
+    the central limit theorem holds. As ``k`` approaches the upper bound, IS becomes less
+    reliable, while PSIS still works well but with a higher RMSE.
+  - if ``\\frac{1}{2} ≤ k < 0.7``, then the variance is infinite, and IS can behave quite
+    poorly. However, PSIS works well in this regime.
+  - if ``0.7 ≤ k < 1``, then it quickly becomes impractical to collect enough importance
+    weights to reliably compute estimates, and importance sampling is not recommended.
+  - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
+    exists. The convergence rate is close to zero, and bias can be large with practical
+    sample sizes.
 """
 struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
@@ -75,7 +92,7 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
 end
 
 """
-    psis(log_ratios, reff = 1.0; kwargs...) -> (log_weights, pareto_shape)
+    psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
@@ -105,30 +122,10 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 
 # Returns
 
-  - `log_weights`: an array of smoothed log weights of the same size as `log_ratios`
-  - `pareto_shape`: for each parameter, the estimated shape parameter ``k=ξ`` of the
-    generalized Pareto distribution, which is useful for diagnosing the distribution of
-    importance ratios. See details below.
+  - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing. 
 
-# Diagnostic
-
-The shape parameter ``k=ξ`` of the generalized Pareto distribution can be used to diagnose
-reliability and convergence of estimates using the importance weights [^VehtariSimpson2021]:
-
-  - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
-    PSIS both are reliable.
-  - if ``k < \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
-    the central limit theorem holds. As ``k`` approaches the upper bound, IS becomes less
-    reliable, while PSIS still works well but with a higher RMSE.
-  - if ``\\frac{1}{2} ≤ k < 0.7``, then the variance is infinite, and IS can behave quite
-    poorly. However, PSIS works well in this regime.
-  - if ``0.7 ≤ k < 1``, then it quickly becomes impractical to collect enough importance
-    weights to reliably compute estimates, and importance sampling is not recommended.
-  - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
-    exists. The convergence rate is close to zero, and bias can be large with practical
-    sample sizes.
-
-A warning is raised if ``k ≥ 0.7``.
+A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
+details.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
