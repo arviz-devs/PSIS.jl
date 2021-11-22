@@ -24,7 +24,7 @@ Result of Pareto-smoothed importance sampling (PSIS).
   - `weights`: normalized Pareto-smoothed weights (allocates a copy)
   - `ndraws`: length of `log_weights` and `weights`
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
-  - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
+  - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of `log_weights`
@@ -33,7 +33,7 @@ See [`psis`](@ref) for a description of how to use `pareto_shape` as a diagnosti
 """
 struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
-    r_eff::R
+    reff::R
     tail_length::L
     tail_dist::D
 end
@@ -162,7 +162,7 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     M = tail_length(reff_val, S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
-        return PSISResult(logw, r_eff, M, missing)
+        return PSISResult(logw, reff, M, missing)
     end
     perm = sorted ? eachindex(logw) : sortperm(logw)
     icut = S - M
@@ -171,12 +171,12 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     @inbounds logu = logw[perm[icut]]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
     check_pareto_shape(tail_dist)
-    return PSISResult(logw, r_eff, M, tail_dist)
+    return PSISResult(logw, reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; kwargs...)
     Tdist = Union{Distributions.GeneralizedPareto{eltype(logw)},Missing}
     logw_firstcol = view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...)
-    reff_vec = reff isa Number ? fill!(similar(logw1), reff) : reff
+    reff_vec = reff isa Number ? fill!(similar(logw_firstcol), reff) : reff
     # support both 2D and 3D arrays, flattening the final dimension
     r1 = psis!(vec(selectdim(logw, 1, 1)), reff_vec[1]; kwargs...)
     # for arrays with named dimensions, this pattern ensures k_hat has the same names
@@ -189,7 +189,7 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
         tail_lengths[i] = ri.tail_length
         tail_dists[i] = ri.tail_dist
     end
-    return PSISResult(logw, r_eff, tail_length, map(identity, tail_dists))
+    return PSISResult(logw, reff_vec, tail_length, map(identity, tail_dists))
 end
 
 pareto_shape(::Missing) = missing
