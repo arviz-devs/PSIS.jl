@@ -96,8 +96,6 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 
   - `sorted=issorted(vec(log_ratios))`: whether `log_ratios` are already sorted. Only
     accepted if `nparams==1`.
-  - `normalize=false`: whether to normalize the log weights so that the resulting weights
-    for a given parameter sum to one.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
