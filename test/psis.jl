@@ -38,7 +38,7 @@ using AxisArrays: AxisArrays
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) ==
-                "PSISResult{Float64, Vector{Float64}, Float64, Int64, GeneralizedPareto{Float64}}:\n    pareto_shape: 0.5"
+                "$(typeof(result)):\n    pareto_shape: 0.5"
         end
     end
 
@@ -65,7 +65,7 @@ using AxisArrays: AxisArrays
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) ==
-                "PSISResult{Float64, Array{Float64, 3}, Vector{Float64}, Vector{Int64}, Vector{GeneralizedPareto{Float64}}}:\n    pareto_shape: [0.5, 0.6, 0.7]"
+                "$(typeof(result)):\n    pareto_shape: [0.5, 0.6, 0.7]"
         end
     end
 end
