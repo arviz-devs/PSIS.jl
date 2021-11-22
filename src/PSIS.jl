@@ -36,7 +36,7 @@ Result of Pareto-smoothed importance sampling (PSIS).
 
 The `pareto_shape` parameter ``k=ξ`` of the generalized Pareto distribution `tail_dist` can
 be used to diagnose reliability and convergence of estimates using the importance weights
-[^VehtariSimpson2021]:
+[^VehtariSimpson2021].
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
     PSIS both are reliable.
@@ -50,6 +50,10 @@ be used to diagnose reliability and convergence of estimates using the importanc
   - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
     exists. The convergence rate is close to zero, and bias can be large with practical
     sample sizes.
+
+[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
+    Pareto smoothed importance sampling.
+    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
 """
 struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
@@ -122,7 +126,7 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 
 # Returns
 
-  - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing. 
+  - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
 A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
 details.
