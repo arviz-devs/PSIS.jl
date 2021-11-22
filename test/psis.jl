@@ -5,8 +5,6 @@ using ReferenceTests
 using Distributions: Normal, Cauchy, Exponential, logpdf, mean
 using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
-using AxisArrays: AxisArrays
-using AxisKeys: AxisKeys
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
@@ -159,42 +157,6 @@ using AxisKeys: AxisKeys
             )
             k_ref = expected_khats[(r_eff, improved)]
             @test k ≈ k_ref
-        end
-    end
-
-    @testset "compatibility with arrays with named axes/dims" begin
-        param_names = [Symbol("x[$i]") for i in 1:10]
-        iter_names = 101:200
-        chain_names = 1:4
-        x = randn(length(param_names), length(iter_names), length(chain_names))
-
-        @testset "AxisArrays" begin
-            logr = AxisArrays.AxisArray(
-                x,
-                AxisArrays.Axis{:param}(param_names),
-                AxisArrays.Axis{:iter}(iter_names),
-                AxisArrays.Axis{:chain}(chain_names),
-            )
-            r_eff = ones(10)
-            logw, k = psis(logr, r_eff)
-            @test logw isa AxisArrays.AxisArray
-            @test AxisArrays.axes(logw) == AxisArrays.axes(logr)
-            @test k isa AxisArrays.AxisArray
-            @test AxisArrays.axes(k) == (AxisArrays.axes(logr, 1),)
-        end
-
-        @testset "AxisKeys" begin
-            logr = AxisKeys.KeyedArray(
-                x; param=param_names, iter=iter_names, chain=chain_names
-            )
-            r_eff = ones(10)
-            logw, k = psis(logr, r_eff)
-            @test logw isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(logw) == AxisKeys.dimnames(logr)
-            @test AxisKeys.axiskeys(logw) == AxisKeys.axiskeys(logr)
-            @test k isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(k) == (:param,)
-            @test AxisKeys.axiskeys(k) == (param_names,)
         end
     end
 end
