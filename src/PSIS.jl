@@ -160,7 +160,7 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
         return PSISResult(logw, reff, M, missing)
     end
-    perm = sorted ? eachindex(logw) : sortperm(logw)
+    perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
     icut = S - M
     tail_range = (icut + 1):S
     @inbounds logw_tail = @views logw[perm[tail_range]]
