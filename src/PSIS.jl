@@ -74,7 +74,7 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
 end
 
 """
-    psis(log_ratios, reff = 1.0; kwargs...) -> (log_weights, k)
+    psis(log_ratios, reff = 1.0; kwargs...) -> (log_weights, pareto_shape)
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
@@ -107,13 +107,13 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
 # Returns
 
   - `log_weights`: an array of smoothed log weights of the same size as `log_ratios`
-  - `k`: for each parameter, the estimated shape parameter ``k`` of the generalized Pareto
-    distribution, which is useful for diagnosing the distribution of importance ratios.
-    See details below.
+  - `pareto_shape`: for each parameter, the estimated shape parameter ``k=ξ`` of the
+    generalized Pareto distribution, which is useful for diagnosing the distribution of
+    importance ratios. See details below.
 
 # Diagnostic
 
-The shape parameter ``k`` of the generalized Pareto distribution can be used to diagnose
+The shape parameter ``k=ξ`` of the generalized Pareto distribution can be used to diagnose
 reliability and convergence of estimates using the importance weights [^VehtariSimpson2021]:
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
@@ -179,7 +179,8 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
     reff_vec = reff isa Number ? fill!(similar(logw_firstcol), reff) : reff
     # support both 2D and 3D arrays, flattening the final dimension
     r1 = psis!(vec(selectdim(logw, 1, 1)), reff_vec[1]; kwargs...)
-    # for arrays with named dimensions, this pattern ensures k_hat has the same names
+    # for arrays with named dimensions, this pattern ensures tail_lengths and tail_dists
+    # have the same names
     tail_lengths = similar(logw_firstcol, Int)
     tail_lengths[1] = r1.tail_length
     tail_dists = similar(logw_firstcol, Tdist)
