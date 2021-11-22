@@ -81,14 +81,14 @@ A warning is raised if ``k ≥ 0.7``.
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function psis(logr, r_eff; kwargs...)
+function psis(logr, reff=1; kwargs...)
     T = float(eltype(logr))
     logw = copyto!(similar(logr, T), logr)
-    return psis!(logw, r_eff; kwargs...)
+    return psis!(logw, reff; kwargs...)
 end
 
 """
-    psis!(args, r_eff; kwargs...)
+    psis!(args[, reff=1.0]; kwargs...)
 
 In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 
@@ -96,14 +96,14 @@ See [`psis`](@ref) for an out-of-place version and for description of arguments 
 values.
 """
 function psis!(
-    logw::AbstractVector, r_eff; sorted=issorted(logw), normalize=false, improved=false
+    logw::AbstractVector, reff=1; sorted=issorted(logw), normalize=false, improved=false
 )
     T = eltype(logw)
     S = length(logw)
     k_hat = T(Inf)
 
-    @assert isone(length(r_eff)) # support numbers or single-element array
-    M = tail_length(first(r_eff), S)
+    @assert isone(length(reff)) # support numbers or single-element array
+    M = tail_length(first(reff), S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
     else
@@ -133,14 +133,16 @@ function psis!(
 
     return logw, k_hat
 end
-function psis!(logw::AbstractArray, r_eff; kwargs...)
+function psis!(logw::AbstractArray, reff=1; kwargs...)
+    logw_firstcol = view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...)
+    reff_vec = reff isa Number ? fill!(similar(logw_firstcol), reff) : reff
     # support both 2D and 3D arrays, flattening the final dimension
-    _, k_hat = psis!(vec(selectdim(logw, 1, 1)), r_eff[1]; kwargs...)
+    _, k_hat = psis!(vec(selectdim(logw, 1, 1)), reff_vec[1]; kwargs...)
     # for arrays with named dimensions, this pattern ensures k_hat has the same names
-    k_hats = similar(view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...), eltype(k_hat))
+    k_hats = similar(logw_firstcol, eltype(k_hat))
     k_hats[1] = k_hat
-    Threads.@threads for i in eachindex(k_hats, r_eff)
-        _, k_hats[i] = psis!(vec(selectdim(logw, 1, i)), r_eff[i]; kwargs...)
+    Threads.@threads for i in eachindex(k_hats, reff_vec)
+        _, k_hats[i] = psis!(vec(selectdim(logw, 1, i)), reff_vec[i]; kwargs...)
     end
     return logw, k_hats
 end
@@ -157,7 +159,7 @@ function check_pareto_k(k)
     return nothing
 end
 
-tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
+tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
 
 function psis_tail!(logw, logu, M=length(logw), improved=false)
     T = eltype(logw)
