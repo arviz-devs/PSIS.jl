@@ -2,10 +2,73 @@ using PSIS
 using Test
 using Random
 using ReferenceTests
-using Distributions: Normal, Cauchy, Exponential, logpdf, mean
+using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean, shape
 using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
+
+@testset "PSISResult" begin
+    @testset "vector log-weights" begin
+        log_weights = randn(500)
+        tail_length = 100
+        reff = 2.0
+        tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
+        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        @test result isa PSISResult{Float64}
+        @test sort(propertynames(result)) == [
+            :log_weights,
+            :nchains,
+            :ndraws,
+            :nparams,
+            :pareto_shape,
+            :reff,
+            :tail_dist,
+            :tail_length,
+            :weights,
+        ]
+        @test result.log_weights == log_weights
+        @test result.weights == softmax(log_weights)
+        @test result.reff == reff
+        @test result.nparams == 1
+        @test result.ndraws == 500
+        @test result.nchains == 1
+        @test result.tail_length == tail_length
+        @test result.tail_dist == tail_dist
+        @test result.pareto_shape == 0.5
+
+        @testset "show" begin
+            @test sprint(show, "text/plain", result) ==
+                "$(typeof(result)):\n    pareto_shape: 0.5"
+        end
+    end
+
+    @testset "array log-weights" begin
+        log_weights = randn(3, 500, 4)
+        tail_length = [1600, 1601, 1602]
+        reff = [0.8, 0.9, 1.1]
+        tail_dist = [
+            GeneralizedPareto(1.0, 1.0, 0.5),
+            GeneralizedPareto(1.0, 1.0, 0.6),
+            GeneralizedPareto(1.0, 1.0, 0.7),
+        ]
+        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        @test result isa PSISResult{Float64}
+        @test result.log_weights == log_weights
+        @test result.weights == softmax(log_weights; dims=(2, 3))
+        @test result.reff == reff
+        @test result.nparams == 3
+        @test result.ndraws == 500
+        @test result.nchains == 4
+        @test result.tail_length == tail_length
+        @test result.tail_dist == tail_dist
+        @test result.pareto_shape == [0.5, 0.6, 0.7]
+
+        @testset "show" begin
+            @test sprint(show, "text/plain", result) ==
+                "$(typeof(result)):\n    pareto_shape: [0.5, 0.6, 0.7]"
+        end
+    end
+end
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
@@ -28,9 +91,30 @@ using AxisArrays: AxisArrays
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                logw, k = psis(logr)
-                w = softmax(logr; dims=dims)
-                @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
+                r = psis(logr)
+                @test r isa PSISResult
+                logw = r.log_weights
+                @test logw isa typeof(logr)
+
+                if length(sz) == 3
+                    @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
+                else
+                    @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
+                end
+
+                ξ = r.pareto_shape
+                @test ξ isa (length(sz) == 1 ? Number : AbstractVector)
+                tail_dist = r.tail_dist
+                if length(sz) == 1
+                    @test tail_dist isa GeneralizedPareto
+                    @test shape(tail_dist) == ξ
+                else
+                    @test tail_dist isa Vector{<:GeneralizedPareto}
+                    @test map(shape, tail_dist) == ξ
+                end
+
+                w = r.weights
+                @test all(x -> isapprox(x, ξ_exp; atol=0.15), ξ)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(
                     x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
@@ -43,35 +127,21 @@ using AxisArrays: AxisArrays
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
-            @test psis(x)[1] == invpermute!(psis(x[perm]; sorted=true)[1], perm)
-            @test psis(x)[2] == psis(x[perm]; sorted=true)[2]
-        end
-
-        @testset "normalize=true" begin
-            @testset for sz in (100, (5, 100), (5, 100, 4))
-                dims = length(sz) == 1 ? Colon() : 2:length(sz)
-                x = randn(sz)
-                lw1, k1 = psis(x)
-                lw2, k2 = psis(x; normalize=true)
-                @test k1 ≈ k2
-                @test !(lw1 ≈ lw2)
-
-                if VERSION ≥ v"1.1"
-                    @test all(abs.(diff(lw1 - lw2; dims=length(sz))) .< sqrt(eps()))
-                end
-                @test all(x -> isapprox(x, 1), sum(exp.(lw2); dims=dims))
-            end
+            @test psis(x).log_weights ==
+                invpermute!(psis(x[perm]; sorted=true).log_weights, perm)
+            @test psis(x).pareto_shape == psis(x[perm]; sorted=true).pareto_shape
         end
     end
 
     @testset "warnings" begin
         io = IOBuffer()
         logr = randn(5)
-        logw, k = with_logger(SimpleLogger(io)) do
+        result = with_logger(SimpleLogger(io)) do
             psis(logr)
         end
-        @test logw == logr
-        @test isinf(k)
+        @test result.log_weights == logr
+        @test ismissing(result.tail_dist)
+        @test ismissing(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
             "Warning: Insufficient tail draws to fit the generalized Pareto distribution",
@@ -79,26 +149,13 @@ using AxisArrays: AxisArrays
         )
 
         io = IOBuffer()
-        logr = ones(100)
-        logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr)
-        end
-        @test logw == logr
-        @test isinf(k)
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: Cannot fit the generalized Pareto distribution because all tail values are the same",
-            msg,
-        )
-
-        io = IOBuffer()
         x = rand(Exponential(100), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
-        logw, k = with_logger(SimpleLogger(io)) do
+        result = with_logger(SimpleLogger(io)) do
             psis(logr)
         end
-        @test logw != logr
-        @test k > 0.7
+        @test result.log_weights != logr
+        @test result.pareto_shape > 0.7
         msg = String(take!(io))
         @test occursin(
             "Resulting importance sampling estimates are likely to be unstable", msg
@@ -106,27 +163,27 @@ using AxisArrays: AxisArrays
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(1.1)
+            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 1.1))
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto k=1.1 ≥ 1. Resulting importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.",
+            "Warning: Pareto shape=1.1 ≥ 1. Resulting importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.",
             msg,
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(0.8)
+            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 0.8))
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto k=0.8 ≥ 0.7. Resulting importance sampling estimates are likely to be unstable.",
+            "Warning: Pareto shape=0.8 ≥ 0.7. Resulting importance sampling estimates are likely to be unstable.",
             msg,
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_k(0.69)
+            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 0.69))
         end
         msg = String(take!(io))
         @test isempty(msg)
@@ -147,7 +204,9 @@ using AxisArrays: AxisArrays
         )
         @testset for r_eff in (0.7, 1.2), improved in (true, false)
             r_effs = fill(r_eff, sz[1])
-            logw, k = psis(logr, r_effs; improved=improved)
+            result = psis(logr, r_effs; improved=improved)
+            logw = result.log_weights
+            k = result.pareto_shape
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
             if improved
@@ -176,11 +235,14 @@ using AxisArrays: AxisArrays
                 AxisArrays.Axis{:iter}(iter_names),
                 AxisArrays.Axis{:chain}(chain_names),
             )
-            logw, k = psis(logr)
-            @test logw isa AxisArrays.AxisArray
-            @test AxisArrays.axes(logw) == AxisArrays.axes(logr)
-            @test k isa AxisArrays.AxisArray
-            @test AxisArrays.axes(k) == (AxisArrays.axes(logr, 1),)
+            result = psis(logr)
+            @test result.log_weights isa AxisArrays.AxisArray
+            @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
+                prop = getproperty(result, k)
+                @test prop isa AxisArrays.AxisArray
+                @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 1),)
+            end
         end
     end
 end
