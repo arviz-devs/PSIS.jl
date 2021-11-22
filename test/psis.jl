@@ -24,12 +24,11 @@ using AxisArrays: AxisArrays
             ξ_exp = 1 - θ
             for sz in ((100_000,), (5, 100_000), (5, 100_000, 4))
                 dims = length(sz) == 1 ? Colon() : 2:length(sz)
-                r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
                 rng = MersenneTwister(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                logw, k = psis(logr, r_eff)
+                logw, k = psis(logr)
                 w = softmax(logr; dims=dims)
                 @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
@@ -44,17 +43,16 @@ using AxisArrays: AxisArrays
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
-            @test psis(x, 1.0)[1] == invpermute!(psis(x[perm], 1.0; sorted=true)[1], perm)
-            @test psis(x, 1.0)[2] == psis(x[perm], 1.0; sorted=true)[2]
+            @test psis(x)[1] == invpermute!(psis(x[perm]; sorted=true)[1], perm)
+            @test psis(x)[2] == psis(x[perm]; sorted=true)[2]
         end
 
         @testset "normalize=true" begin
             @testset for sz in (100, (5, 100), (5, 100, 4))
                 dims = length(sz) == 1 ? Colon() : 2:length(sz)
-                r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
                 x = randn(sz)
-                lw1, k1 = psis(x, r_eff)
-                lw2, k2 = psis(x, r_eff; normalize=true)
+                lw1, k1 = psis(x)
+                lw2, k2 = psis(x; normalize=true)
                 @test k1 ≈ k2
                 @test !(lw1 ≈ lw2)
 
@@ -70,7 +68,7 @@ using AxisArrays: AxisArrays
         io = IOBuffer()
         logr = randn(5)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr, 1.0)
+            psis(logr)
         end
         @test logw == logr
         @test isinf(k)
@@ -83,7 +81,7 @@ using AxisArrays: AxisArrays
         io = IOBuffer()
         logr = ones(100)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr, 1.0)
+            psis(logr)
         end
         @test logw == logr
         @test isinf(k)
@@ -97,7 +95,7 @@ using AxisArrays: AxisArrays
         x = rand(Exponential(100), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
         logw, k = with_logger(SimpleLogger(io)) do
-            psis(logr, 1.0)
+            psis(logr)
         end
         @test logw != logr
         @test k > 0.7
@@ -178,8 +176,7 @@ using AxisArrays: AxisArrays
                 AxisArrays.Axis{:iter}(iter_names),
                 AxisArrays.Axis{:chain}(chain_names),
             )
-            r_eff = ones(10)
-            logw, k = psis(logr, r_eff)
+            logw, k = psis(logr)
             @test logw isa AxisArrays.AxisArray
             @test AxisArrays.axes(logw) == AxisArrays.axes(logr)
             @test k isa AxisArrays.AxisArray
