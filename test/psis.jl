@@ -15,6 +15,17 @@ using AxisArrays: AxisArrays
         tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
         result = PSISResult(log_weights, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
+        @test sort(propertynames(result)) == [
+            :log_weights,
+            :nchains,
+            :ndraws,
+            :nparams,
+            :pareto_shape,
+            :reff,
+            :tail_dist,
+            :tail_length,
+            :weights,
+        ]
         @test result.log_weights == log_weights
         @test result.weights == softmax(log_weights)
         @test result.reff == reff
