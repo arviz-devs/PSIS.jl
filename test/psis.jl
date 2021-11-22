@@ -6,7 +6,6 @@ using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mea
 using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
-using AxisKeys: AxisKeys
 
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
@@ -25,18 +24,19 @@ using AxisKeys: AxisKeys
             ξ_exp = 1 - θ
             for sz in ((100_000,), (5, 100_000), (5, 100_000, 4))
                 dims = length(sz) == 1 ? Colon() : 2:length(sz)
-                r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
                 rng = MersenneTwister(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                r = psis(logr, r_eff)
+                r = psis(logr)
                 logw = r.log_weights
                 k = r.pareto_shape
                 w = softmax(logr; dims=dims)
-                @test all(≈(ξ_exp; atol=0.15), k)
-                @test all(≈(x_target; atol=atol), sum(x .* w; dims=dims))
-                @test all(≈(x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims))
+                @test all(x -> isapprox(x, ξ_exp; atol=0.15), k)
+                @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
+                @test all(
+                    x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
+                )
             end
         end
     end
@@ -45,32 +45,33 @@ using AxisKeys: AxisKeys
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
-            @test psis(x, 1.0).log_weights ==
-                invpermute!(psis(x[perm], 1.0; sorted=true).log_weights, perm)
-            @test psis(x, 1.0).pareto_shape == psis(x[perm], 1.0; sorted=true).pareto_shape
+            @test psis(x).log_weights ==
+                invpermute!(psis(x[perm]; sorted=true).log_weights, perm)
+            @test psis(x).pareto_shape == psis(x[perm]; sorted=true).pareto_shape
         end
 
-        # @testset "normalize=true" begin
-        #     @testset for sz in (100, (5, 100), (5, 100, 4))
-        #         dims = length(sz) == 1 ? Colon() : 2:length(sz)
-        #         r_eff = length(sz) == 1 ? 1.0 : ones(sz[1])
-        #         x = randn(sz)
-        #         lw1, k1 = psis(x, r_eff)
-        #         lw2, k2 = psis(x, r_eff; normalize=true)
-        #         @test k1 ≈ k2
-        #         @test !(lw1 ≈ lw2)
+        @testset "normalize=true" begin
+            @testset for sz in (100, (5, 100), (5, 100, 4))
+                dims = length(sz) == 1 ? Colon() : 2:length(sz)
+                x = randn(sz)
+                lw1, k1 = psis(x)
+                lw2, k2 = psis(x; normalize=true)
+                @test k1 ≈ k2
+                @test !(lw1 ≈ lw2)
 
-        #         @test all(abs.(diff(lw1 .- lw2; dims=length(sz))) .< sqrt(eps()))
-        #         @test all(≈(1), sum(exp, lw2; dims=dims))
-        #     end
-        # end
+                if VERSION ≥ v"1.1"
+                    @test all(abs.(diff(lw1 - lw2; dims=length(sz))) .< sqrt(eps()))
+                end
+                @test all(x -> isapprox(x, 1), sum(exp.(lw2); dims=dims))
+            end
+        end
     end
 
     @testset "warnings" begin
         io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr, 1.0)
+            psis(logr)
         end
         @test result.log_weights == logr
         @test ismissing(result.pareto_shape)
@@ -80,24 +81,24 @@ using AxisKeys: AxisKeys
             msg,
         )
 
-        # io = IOBuffer()
-        # logr = ones(100)
-        # r = with_logger(SimpleLogger(io)) do
-        #     psis(logr, 1.0)
-        # end
-        # @test r.log_weights == logr
-        # @test r.pareto_shape == -1
-        # msg = String(take!(io))
-        # @test occursin(
-        #     "Warning: Cannot fit the generalized Pareto distribution because all tail values are the same",
-        #     msg,
-        # )
+        io = IOBuffer()
+        logr = ones(100)
+        logw, k = with_logger(SimpleLogger(io)) do
+            psis(logr)
+        end
+        @test logw == logr
+        @test isinf(k)
+        msg = String(take!(io))
+        @test occursin(
+            "Warning: Cannot fit the generalized Pareto distribution because all tail values are the same",
+            msg,
+        )
 
         io = IOBuffer()
         x = rand(Exponential(100), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr, 1.0)
+            psis(logr)
         end
         @test result.log_weights != logr
         @test result.pareto_shape > 0.7
@@ -180,26 +181,10 @@ using AxisKeys: AxisKeys
                 AxisArrays.Axis{:iter}(iter_names),
                 AxisArrays.Axis{:chain}(chain_names),
             )
-            r_eff = ones(10)
-            result = psis(logr, r_eff)
+            result = psis(logr)
             @test result.log_weights isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
             @test result.pareto_shape isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.pareto_shape) == (AxisArrays.axes(logr, 1),)
-        end
-
-        @testset "AxisKeys" begin
-            logr = AxisKeys.KeyedArray(
-                x; param=param_names, iter=iter_names, chain=chain_names
-            )
-            r_eff = ones(10)
-            result = psis(logr, r_eff)
-            @test result.log_weights isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(result.log_weights) == AxisKeys.dimnames(logr)
-            @test AxisKeys.axiskeys(result.log_weights) == AxisKeys.axiskeys(logr)
-            @test result.pareto_shape isa AxisKeys.KeyedArray
-            @test AxisKeys.dimnames(result.pareto_shape) == (:param,)
-            @test AxisKeys.axiskeys(result.pareto_shape) == (param_names,)
-        end
     end
 end
