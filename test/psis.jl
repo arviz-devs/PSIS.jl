@@ -7,6 +7,58 @@ using LogExpFunctions: softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
 
+@testset "PSISResult" begin
+    @testset "vector log-weights" begin
+        log_weights = randn(500)
+        tail_length = 100
+        reff = 2.0
+        tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
+        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        @test result isa PSISResult{Float64}
+        @test result.log_weights == log_weights
+        @test result.weights == softmax(log_weights)
+        @test result.reff == reff
+        @test result.nparams == 1
+        @test result.ndraws == 500
+        @test result.nchains == 1
+        @test result.tail_length == tail_length
+        @test result.tail_dist == tail_dist
+        @test result.pareto_shape == 0.5
+
+        @testset "show" begin
+            @test sprint(show, "text/plain", result) ==
+                "PSISResult{Float64, Vector{Float64}, Float64, Int64, GeneralizedPareto{Float64}}:\n    pareto_shape: 0.5"
+        end
+    end
+
+    @testset "array log-weights" begin
+        log_weights = randn(3, 500, 4)
+        tail_length = [1600, 1601, 1602]
+        reff = [0.8, 0.9, 1.1]
+        tail_dist = [
+            GeneralizedPareto(1.0, 1.0, 0.5),
+            GeneralizedPareto(1.0, 1.0, 0.6),
+            GeneralizedPareto(1.0, 1.0, 0.7),
+        ]
+        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        @test result isa PSISResult{Float64}
+        @test result.log_weights == log_weights
+        @test result.weights == softmax(log_weights; dims=(2, 3))
+        @test result.reff == reff
+        @test result.nparams == 3
+        @test result.ndraws == 500
+        @test result.nchains == 4
+        @test result.tail_length == tail_length
+        @test result.tail_dist == tail_dist
+        @test result.pareto_shape == [0.5, 0.6, 0.7]
+
+        @testset "show" begin
+            @test sprint(show, "text/plain", result) ==
+                "PSISResult{Float64, Array{Float64, 3}, Vector{Float64}, Vector{Int64}, Vector{GeneralizedPareto{Float64}}}:\n    pareto_shape: [0.5, 0.6, 0.7]"
+        end
+    end
+end
+
 @testset "psis/psis!" begin
     @testset "importance sampling tests" begin
         target = Exponential(1)
