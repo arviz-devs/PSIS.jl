@@ -156,42 +156,21 @@ In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(
-    logw::AbstractVector, r_eff; sorted=issorted(logw), normalize=false, improved=false
-)
-    T = eltype(logw)
+function psis!(logw::AbstractVector, r_eff; sorted=issorted(logw), improved=false)
     S = length(logw)
-    k_hat = T(Inf)
-
     M = tail_length(only(r_eff), S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
-    else
-        perm = sorted ? eachindex(logw) : sortperm(logw)
-        @inbounds logw_max = logw[last(perm)]
-        icut = S - M
-        tail_range = (icut + 1):S
-
-        @inbounds logw_tail = @views logw[perm[tail_range]]
-        if logw_max - first(logw_tail) < eps(eltype(logw_tail)) / 100
-            @warn "Cannot fit the generalized Pareto distribution because all tail " *
-                "values are the same"
-        else
-            logw_tail .-= logw_max
-            @inbounds logu = logw[perm[icut]] - logw_max
-
-            _, k_hat = psis_tail!(logw_tail, logu, M, improved)
-            logw_tail .+= logw_max
-
-            check_pareto_k(k_hat)
-        end
+        return PSISResult(logw, r_eff, M, missing)
     end
-
-    if normalize
-        logw .-= logsumexp(logw)
-    end
-
-    return logw, k_hat
+    perm = sorted ? eachindex(logw) : sortperm(logw)
+    icut = S - M
+    tail_range = (icut + 1):S
+    @inbounds logw_tail = @views logw[perm[tail_range]]
+    @inbounds logu = logw[perm[icut]]
+    _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
+    check_pareto_shape(tail_dist)
+    return PSISResult(logw, r_eff, M, tail_dist)
 end
 function psis!(logw::AbstractArray, r_eff; kwargs...)
     # support both 2D and 3D arrays, flattening the final dimension
