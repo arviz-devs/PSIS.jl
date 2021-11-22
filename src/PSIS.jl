@@ -47,7 +47,7 @@ function Base.getproperty(r::PSISResult, k::Symbol)
         log_weights = getfield(r, :log_weights)
         d = ndims(log_weights)
         dims = d == 1 ? Colon() : ntuple(Base.Fix1(+, 1), d - 1)
-        return softmax(log_weights; dims = dims)
+        return softmax(log_weights; dims=dims)
     end
     if k === :nparams
         log_weights = getfield(r, :log_weights)
@@ -218,10 +218,7 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
     μ_scaled = exp(logμ - logw_max)
     w = (logw .= exp.(logw .- logw_max))
     tail_dist_scaled = StatsBase.fit(
-        GeneralizedParetoKnownMu(μ_scaled),
-        w;
-        sorted=true,
-        improved=improved,
+        GeneralizedParetoKnownMu(μ_scaled), w; sorted=true, improved=improved
     )
     tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
     # undo the scaling
