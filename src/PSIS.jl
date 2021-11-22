@@ -2,15 +2,76 @@ module PSIS
 
 using Distributions: Distributions
 using LinearAlgebra: dot
-using LogExpFunctions: logsumexp, softmax!
+using LogExpFunctions: logsumexp, softmax, softmax!
 using Printf: @sprintf
 using Statistics: mean, median, quantile
 using StatsBase: StatsBase
 
+export PSISResult
 export psis, psis!
 
 include("utils.jl")
 include("generalized_pareto.jl")
+
+"""
+    PSISResult
+
+Result of Pareto-smoothed importance sampling (PSIS).
+
+# Properties
+
+  - `log_weights`: unnormalized Pareto-smoothed log weights
+  - `weights`: normalized Pareto-smoothed weights (allocates a copy)
+  - `ndraws`: length of `log_weights` and `weights`
+  - `pareto_shape`: Pareto ``k=ξ`` shape parameter
+  - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
+    the actual sample size.
+  - `tail_length`: length of the upper tail of `log_weights` that was smoothed
+  - `tail_dist`: the generalized Pareto distribution that was fit to the tail of `log_weights`
+
+See [`psis`](@ref) for a description of how to use `pareto_shape` as a diagnostic.
+"""
+struct PSISResult{T,W<:AbstractArray{T},R,L,D}
+    log_weights::W
+    r_eff::R
+    tail_length::L
+    tail_dist::D
+end
+
+function Base.propertynames(r::PSISResult)
+    return [fieldnames(typeof(r))..., :weights, :nparams, :ndraws, :nchains, :pareto_shape]
+end
+
+function Base.getproperty(r::PSISResult, k::Symbol)
+    if k === :weights
+        log_weights = getfield(r, :log_weights)
+        d = ndims(log_weights)
+        dims = d == 1 ? Colon() : ntuple(Base.Fix1(+, 1), d - 1)
+        return softmax(log_weights; dims = dims)
+    end
+    if k === :nparams
+        log_weights = getfield(r, :log_weights)
+        return ndims(log_weights) == 1 ? 1 : size(log_weights, 1)
+    end
+    if k === :ndraws
+        log_weights = getfield(r, :log_weights)
+        return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 2)
+    end
+    if k === :nchains
+        log_weights = getfield(r, :log_weights)
+        return size(log_weights, 3)
+    end
+    k === :pareto_shape && return pareto_shape(r)
+    return getfield(r, k)
+end
+
+function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
+    println(io, typeof(r), ":")
+    println(io, "    (nparams, ndraws, nchains): ", (r.nparams, r.ndraws, r.nchains))
+    print(io, "    r_eff: ", r.r_eff)
+    print(io, "\n    pareto_shape: ", r.pareto_shape)
+    return nothing
+end
 
 """
     psis(log_ratios, r_eff; kwargs...) -> (log_weights, k)
