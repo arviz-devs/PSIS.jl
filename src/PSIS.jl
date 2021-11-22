@@ -13,7 +13,7 @@ include("utils.jl")
 include("generalized_pareto.jl")
 
 """
-    psis(log_ratios, reff=1.0; kwargs...) -> (log_weights, k)
+    psis(log_ratios, reff = 1.0; kwargs...) -> (log_weights, k)
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
@@ -30,9 +30,8 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
         multiple chains, e.g. as might be generated with Markov chain Monte Carlo.
 
   - `reff::Union{Real,AbstractVector}`: the ratio(s) of effective sample size of
-    `log_ratios` and the actual sample size, used to account for autocorrelation, e.g. due
-    to Markov chain Monte Carlo. If the ratios are known to be uncorrelated, then provide
-    `reff=ones(nparams)`.
+    `log_ratios` and the actual sample size `reff = ess/(ndraws * nchains)`, used to account
+    for autocorrelation, e.g. due to Markov chain Monte Carlo.
 
 # Keywords
 
@@ -89,7 +88,7 @@ function psis(logr, reff=1; kwargs...)
 end
 
 """
-    psis!(args[, reff=1.0]; kwargs...)
+    psis!(args, reff = 1.0; kwargs...)
 
 In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 
