@@ -173,15 +173,21 @@ function psis!(logw::AbstractVector, r_eff; sorted=issorted(logw), improved=fals
     return PSISResult(logw, r_eff, M, tail_dist)
 end
 function psis!(logw::AbstractArray, r_eff; kwargs...)
+    Tdist = Union{Distributions.GeneralizedPareto{eltype(logw)},Missing}
     # support both 2D and 3D arrays, flattening the final dimension
-    _, k_hat = psis!(vec(selectdim(logw, 1, 1)), r_eff[1]; kwargs...)
+    r1 = psis!(vec(selectdim(logw, 1, 1)), r_eff[1]; kwargs...)
     # for arrays with named dimensions, this pattern ensures k_hat has the same names
-    k_hats = similar(view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...), eltype(k_hat))
-    k_hats[1] = k_hat
-    Threads.@threads for i in eachindex(k_hats, r_eff)
-        _, k_hats[i] = psis!(vec(selectdim(logw, 1, i)), r_eff[i]; kwargs...)
+    logw1 = view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...)
+    tail_lengths = similar(logw1, Int)
+    tail_lengths[1] = r1.tail_length
+    tail_dists = similar(logw1, Tdist)
+    tail_dists[1] = r1.tail_dist
+    Threads.@threads for i in eachindex(tail_dists, r_eff, tail_lengths, tail_dists)
+        ri = psis!(vec(selectdim(logw, 1, i)), r_eff[i]; kwargs...)
+        tail_lengths[i] = ri.tail_length
+        tail_dists[i] = ri.tail_dist
     end
-    return logw, k_hats
+    return PSISResult(logw, r_eff, tail_length, map(identity, tail_dists))
 end
 
 pareto_shape(::Missing) = missing
