@@ -186,7 +186,7 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
         tail_lengths[i] = ri.tail_length
         tail_dists[i] = ri.tail_dist
     end
-    return PSISResult(logw, reff_vec, tail_length, map(identity, tail_dists))
+    return PSISResult(logw, reff_vec, tail_lengths, map(identity, tail_dists))
 end
 
 pareto_shape(::Missing) = missing
