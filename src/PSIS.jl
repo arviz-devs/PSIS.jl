@@ -158,20 +158,32 @@ end
 
 tail_length(r_eff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / r_eff)))
 
-function psis_tail!(logw, logu, M=length(logw), improved=false)
+function psis_tail!(logw, logμ, M=length(logw), improved=false)
     T = eltype(logw)
-    u = exp(logu)
-    w = (logw .= exp.(logw))
-    d_hat = StatsBase.fit(GeneralizedParetoKnownMu(u), w; sorted=true, improved=improved)
-    d_hat = prior_adjust_shape(d_hat, M)
-    k_hat = Distributions.shape(d_hat)
-    if isfinite(k_hat)
+    logw_max = logw[M]
+    # to improve numerical stability, we first scale the log-weights to have a maximum of 1,
+    # equivalent to shifting the log-weights to have a maximum of 0.
+    μ_scaled = exp(logμ - logw_max)
+    w = (logw .= exp.(logw .- logw_max))
+    tail_dist_scaled = StatsBase.fit(
+        GeneralizedParetoKnownMu(μ_scaled),
+        w;
+        sorted=true,
+        improved=improved,
+    )
+    tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
+    # undo the scaling
+    ξ = Distributions.shape(tail_dist_adjusted)
+    if isfinite(ξ)
         p = uniform_probabilities(T, M)
         @inbounds for i in eachindex(logw, p)
-            logw[i] = min(log(_quantile(d_hat, p[i])), 0)
+            # undo scaling in the log-weights
+            logw[i] = min(log(_quantile(tail_dist_adjusted, p[i])), 0) + logw_max
         end
     end
-    return logw, k_hat
+    # undo scaling for the tail distribution
+    tail_dist = scale(tail_dist_adjusted, exp(logw_max))
+    return logw, tail_dist
 end
 
 end
