@@ -239,4 +239,6 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
     return logw, tail_dist
 end
 
+include("recipes/plots.jl")
+
 end
