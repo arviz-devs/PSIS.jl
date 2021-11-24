@@ -23,5 +23,7 @@ end
     seriestype --> :scatter
     markershape --> :cross
     primary := true
+    ylabel --> "Pareto shape"
+    xlabel --> "Parameter"
     return (ξnew,)
 end
