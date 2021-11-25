@@ -1,6 +1,6 @@
 # type recipe, just maps PSISResult to shape(s)
 RecipesBase.@recipe function f(::Type{T}, result::T) where {T<:PSISResult}
-    return pareto_shape(result)
+    return as_array(missing_to_nan(pareto_shape(result)))
 end
 
 # user recipe, plots PSISResult with lines
@@ -12,17 +12,10 @@ end
         linealpha --> 0.7
         y := [0 0.5 0.7 1]
     end
-    ξ = pareto_shape(result)
-    ξnew = if ξ isa Missing
-        [NaN]
-    elseif ξ isa Number
-        [ξ]
-    else
-        replace(ξ, missing => NaN)
-    end
+    ξ = as_array(missing_to_nan(pareto_shape(result)))
     seriestype --> :scatter
     primary := true
     ylabel --> "Pareto shape"
     xlabel --> "Parameter"
-    return (ξnew,)
+    return (ξ,)
 end
