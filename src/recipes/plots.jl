@@ -17,6 +17,6 @@ end
     seriestype --> :scatter
     primary := true
     ylabel --> "Pareto shape"
-    xlabel --> "Parameter"
+    xlabel --> "Parameter index"
     return (ξ,)
 end
