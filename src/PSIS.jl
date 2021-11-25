@@ -4,6 +4,7 @@ using Distributions: Distributions
 using LinearAlgebra: dot
 using LogExpFunctions: logsumexp, softmax, softmax!
 using Printf: @sprintf
+using Requires: Requires
 using Statistics: mean, median, quantile
 using StatsBase: StatsBase
 
@@ -236,6 +237,12 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
     # undo scaling for the tail distribution
     tail_dist = scale(tail_dist_adjusted, exp(logw_max))
     return logw, tail_dist
+end
+
+function __init__()
+    Requires.@require Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
+        using .Makie
+    end
 end
 
 end
