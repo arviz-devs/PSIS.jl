@@ -4,7 +4,7 @@ using Distributions: Distributions
 using LinearAlgebra: dot
 using LogExpFunctions: logsumexp, softmax, softmax!
 using Printf: @sprintf
-using RecipesBase
+using RecipesBase: RecipesBase
 using Statistics: mean, median, quantile
 using StatsBase: StatsBase
 

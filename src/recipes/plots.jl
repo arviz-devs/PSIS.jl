@@ -4,8 +4,8 @@ RecipesBase.@recipe function f(::Type{T}, result::T) where {T<:PSISResult}
 end
 
 # user recipe, plots PSISResult with lines
-@recipe function f(result::PSISResult; show_hlines=false)
-    show_hlines && @series begin
+RecipesBase.@recipe function f(result::PSISResult; show_hlines=false)
+    show_hlines && RecipesBase.@series begin
         seriestype := :hline
         primary := false
         linestyle --> [:dot :dashdot :dash :solid]
