@@ -21,7 +21,6 @@ end
         replace(ξ, missing => NaN)
     end
     seriestype --> :scatter
-    markershape --> :cross
     primary := true
     ylabel --> "Pareto shape"
     xlabel --> "Parameter"
