@@ -1,18 +1,3 @@
-module PSIS
-
-using Distributions: Distributions
-using LinearAlgebra: dot
-using LogExpFunctions: logsumexp, softmax, softmax!
-using Printf: @sprintf
-using Statistics: mean, median, quantile
-using StatsBase: StatsBase
-
-export PSISResult
-export psis, psis!
-
-include("utils.jl")
-include("generalized_pareto.jl")
-
 """
     PSISResult
 
@@ -236,6 +221,4 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
     # undo scaling for the tail distribution
     tail_dist = scale(tail_dist_adjusted, exp(logw_max))
     return logw, tail_dist
-end
-
 end
