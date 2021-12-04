@@ -11,6 +11,7 @@ If `showlines=true`, then horizontal lines indicating the different Pareto shape
 are drawn.
 
 !!! note
-    Plots.jl must be loaded to use these functions
+    
+    Plots.jl must be loaded to use these functions.
 """
 paretoshapeplot, paretoshapeplot!
