@@ -1,11 +1,28 @@
-# type recipe, just maps PSISResult to shape(s)
-RecipesBase.@recipe function f(::Type{T}, result::T) where {T<:PSISResult}
-    return as_array(missing_to_nan(pareto_shape(result)))
+# Plots.jl recipes
+
+# plot config object, used for dispatch
+mutable struct ParetoShapePlotConfig
+    args
+end
+paretoshapeplot(args...; kw...) = RecipesBase.plot(ParetoShapePlotConfig(args); kw...)
+paretoshapeplot!(args...; kw...) = RecipesBase.plot!(ParetoShapePlotConfig(args); kw...)
+function paretoshapeplot!(plt::RecipesBase.AbstractPlot, args...; kw...)
+    return RecipesBase.plot!(plt, ParetoShapePlotConfig(args); kw...)
 end
 
-# user recipe, plots PSISResult with lines
-RecipesBase.@recipe function f(result::PSISResult; show_hlines=false)
-    show_hlines && RecipesBase.@series begin
+# pre-process to make PSISResult if necessary
+RecipesBase.@recipe function f(config::ParetoShapePlotConfig)
+    arg = first(config.args)
+    if arg isa PSISResult
+        return (arg,)
+    else
+        return (psis(arg),)
+    end
+end
+
+# plot PSISResult with lines
+RecipesBase.@recipe function f(result::PSISResult; showlines=false)
+    showlines && RecipesBase.@series begin
         seriestype := :hline
         primary := false
         linestyle --> [:dot :dashdot :dash :solid]
