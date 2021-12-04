@@ -1,3 +1,13 @@
+# Makie.jl recipes
+
+# plotting functions
+function paretoshapeplot(args...; attributes...)
+    return MakieCore.plot(ParetoShapePlot, args...; attributes...)
+end
+function paretoshapeplot!(args...; attributes...)
+    return MakieCore.plot!(ParetoShapePlot, args...; attributes...)
+end
+
 # define an internal plotting recipe for shape values
 @recipe(ParetoShapePlot, pareto_shape) do scene
     l_theme = default_theme(scene, LineSegments)
