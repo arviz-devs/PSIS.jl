@@ -4,8 +4,7 @@
     return Attributes(;
         default_theme(scene, Scatter)...,
         linewidth=l_theme.linewidth,
-        linecolor=:grey,
-        linealpha=get(l_theme, :alpha, 0.7),
+        linecolor=(:grey, 0.7),
         linevisible=false,
     )
 end
@@ -13,8 +12,8 @@ end
 function Makie.plot!(p::ParetoShapePlot)
     attrs = p.attributes
     points = p[1]
-    lattr = (:linewidth, :linecolor, :linealpha, :linevisible)
-    linewidth, linecolor, linealpha, linevisible = getindex.(p, lattr)
+    lattr = (:linewidth, :linecolor, :linevisible)
+    linewidth, linecolor, linevisible = getindex.(p, lattr)
     xminmax = lift(points) do pts
         xmin, xmax = extrema(first, pts)
         xspan = xmax - xmin
@@ -30,7 +29,6 @@ function Makie.plot!(p::ParetoShapePlot)
             linestyle=linestyle,
             linewidth=linewidth,
             color=linecolor,
-            alpha=linealpha,
             visible=linevisible,
         )
     end
