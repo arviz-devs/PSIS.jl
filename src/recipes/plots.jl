@@ -11,17 +11,7 @@ function paretoshapeplot!(plt::RecipesBase.AbstractPlot, args...; kw...)
 end
 
 # pre-process to make PSISResult if necessary
-RecipesBase.@recipe function f(config::ParetoShapePlotConfig)
-    arg = first(config.args)
-    if arg isa PSISResult
-        return (arg,)
-    else
-        return (psis(arg),)
-    end
-end
-
-# plot PSISResult with lines
-RecipesBase.@recipe function f(result::PSISResult; showlines=false)
+RecipesBase.@recipe function f(config::ParetoShapePlotConfig; showlines=false)
     showlines && RecipesBase.@series begin
         seriestype := :hline
         primary := false
@@ -30,10 +20,23 @@ RecipesBase.@recipe function f(result::PSISResult; showlines=false)
         linecolor --> :grey
         y := [0 0.5 0.7 1]
     end
-    ξ = as_array(missing_to_nan(pareto_shape(result)))
-    seriestype --> :scatter
-    primary := true
-    ylabel --> "Pareto shape"
     xlabel --> "Parameter index"
-    return (ξ,)
+    ylabel --> "Pareto shape"
+    seriestype --> :scatter
+    arg = first(config.args)
+    if arg isa PSISResult
+        return (arg,)
+    else
+        return (psis(arg),)
+    end
+end
+
+# plot PSISResult using paretoshapeplot if seriestype not specified
+RecipesBase.@recipe function f(result::PSISResult)
+    if :seriestype ∈ keys(plotattributes)
+        ξ = as_array(missing_to_nan(pareto_shape(result)))
+        return (ξ,)
+    else
+        return ParetoShapePlotConfig((result,))
+    end
 end
