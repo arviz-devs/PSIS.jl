@@ -36,20 +36,6 @@ function Makie.plot!(p::ParetoShapePlot)
     return scatter!(p, p[1]; (k => attrs[k] for k in ks)...)
 end
 
-# If an axis without labels is provided, when we also set the labels
-# Note: this is not an officially documented approach.
-function Makie.plot!(ax::Axis, result::PSISResult; attributes...)
-    paretoshapeplot!(ax, result; attributes...)
-    attrs = ax.attributes
-    if isempty(attrs.xlabel[])
-        attrs.xlabel = "Parameter index"
-    end
-    if isempty(attrs.ylabel[])
-        attrs.ylabel = "Pareto shape"
-    end
-    return ax
-end
-
 # designate default plot type for PSISResult
 Makie.plottype(::PSISResult) = ParetoShapePlot
 
