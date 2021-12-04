@@ -39,10 +39,12 @@ end
 # designate default plot type for PSISResult
 Makie.plottype(::PSISResult) = ParetoShapePlot
 
-# convert PSISResult to its shape values with paretoshapeplot
+# convert PSISResult to its shape values with ParetoShapePlot
 function Makie.convert_arguments(::Type{<:ParetoShapePlot}, result::PSISResult)
     return convert_arguments(Scatter, as_array(missing_to_nan(pareto_shape(result))))
 end
-function Makie.convert_arguments(P::Type{<:ParetoShapePlot}, log_ratios::AbstractArray{<:Real})
+function Makie.convert_arguments(
+    P::Type{<:ParetoShapePlot}, log_ratios::AbstractArray{<:Real}
+)
     return convert_arguments(P, psis(log_ratios))
 end
