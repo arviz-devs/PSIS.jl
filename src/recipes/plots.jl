@@ -25,10 +25,12 @@ RecipesBase.@recipe function f(config::ParetoShapePlotConfig; showlines=false)
     seriestype --> :scatter
     arg = first(config.args)
     if arg isa PSISResult
-        return (arg,)
+        result = arg
     else
-        return (psis(arg),)
+        result = psis(arg)
     end
+    ξ = as_array(missing_to_nan(pareto_shape(result)))
+    return (ξ,)
 end
 
 # plot PSISResult using paretoshapeplot if seriestype not specified
