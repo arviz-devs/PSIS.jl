@@ -35,7 +35,7 @@ end
 
 # plot PSISResult using paretoshapeplot if seriestype not specified
 RecipesBase.@recipe function f(result::PSISResult)
-    if :seriestype ∈ keys(plotattributes)
+    if haskey(plotattributes, :seriestype)
         ξ = as_array(missing_to_nan(pareto_shape(result)))
         return (ξ,)
     else
