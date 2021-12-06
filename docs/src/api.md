@@ -1,6 +1,9 @@
 # API
 
-```@autodocs
-Modules = [PSIS]
-Private = false
+```@docs
+PSISResult
+psis
+psis!
+paretoshapeplot
+paretoshapeplot!
 ```
