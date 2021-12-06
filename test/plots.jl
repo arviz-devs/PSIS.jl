@@ -3,34 +3,23 @@ using Plots
 using Test
 
 @testset "Plots.jl recipes" begin
-    @testset "$f(::$T)" for f in (paretoshapeplot, paretoshapeplot!),
-        T in (Vector{Float64}, Matrix{Float64}, Array{Float64,3})
+    @testset "$f" for f in (paretoshapeplot, paretoshapeplot!), sz in (100, (10, 100))
+        result = psis(randn(sz...))
 
-        if T <: Array
-            d = ndims(T)
-            if d == 1
-                log_ratios = randn(100)
-            else
-                log_ratios = randn((10, 100, 2)[1:d]...)
-            end
-            values = log_ratios
-            result = psis(log_ratios)
-        else
-            result = psis(randn(10, 100))
-            values = result
+        @testset for values in (result, result.pareto_shape)
+            plot()
+            plt = f(values)
+            @test plt isa Plots.Plot
+            @test length(plt.series_list) == 1
+            @test plt[1][1][:x] == Base.OneTo(result.nparams)
+            @test plt[1][1][:y] == PSIS.as_array(result.pareto_shape)
+            @test plt[1][1][:seriestype] == :scatter
+            @test plt[1][:xaxis][:guide] == "Parameter index"
+            @test plt[1][:yaxis][:guide] == "Pareto shape"
         end
-        plot()
-        plt = f(values)
-        @test plt isa Plots.Plot
-        @test length(plt.series_list) == 1
-        @test plt[1][1][:x] == Base.OneTo(result.nparams)
-        @test plt[1][1][:y] == PSIS.as_array(result.pareto_shape)
-        @test plt[1][1][:seriestype] == :scatter
-        @test plt[1][:xaxis][:guide] == "Parameter index"
-        @test plt[1][:yaxis][:guide] == "Pareto shape"
 
         plot()
-        plt2 = f(values; showlines=true)
+        plt2 = f(result; showlines=true)
         @test plt2 isa Plots.Plot
         @test length(plt2.series_list) == 5
         linestyles = [:dot, :dashdot, :dash, :solid]

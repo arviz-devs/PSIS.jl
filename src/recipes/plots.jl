@@ -24,12 +24,7 @@ RecipesBase.@recipe function f(config::ParetoShapePlotConfig; showlines=false)
     ylabel --> "Pareto shape"
     seriestype --> :scatter
     arg = first(config.args)
-    if arg isa PSISResult
-        result = arg
-    else
-        result = psis(arg)
-    end
-    ξ = as_array(missing_to_nan(pareto_shape(result)))
+    ξ = as_array(missing_to_nan(arg isa PSISResult ? pareto_shape(arg) : arg))
     return (ξ,)
 end
 
