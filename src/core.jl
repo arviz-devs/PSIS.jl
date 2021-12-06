@@ -1,7 +1,7 @@
 """
     PSISResult
 
-Result of Pareto-smoothed importance sampling (PSIS).
+Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
 # Properties
 
@@ -35,6 +35,8 @@ be used to diagnose reliability and convergence of estimates using the importanc
   - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
     exists. The convergence rate is close to zero, and bias can be large with practical
     sample sizes.
+
+See [`paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
@@ -114,7 +116,7 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
 A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
-details.
+details and [`paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
