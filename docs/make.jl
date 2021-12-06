@@ -1,4 +1,4 @@
-using PSIS
+using Distributions, Plots, PSIS
 using Documenter
 
 DocMeta.setdocmeta!(PSIS, :DocTestSetup, :(using PSIS); recursive=true)
