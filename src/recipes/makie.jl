@@ -45,3 +45,36 @@ Makie.plottype(::PSISResult) = ParetoShapePlot
 function Makie.convert_arguments(::Type{<:ParetoShapePlot}, result::PSISResult)
     return convert_arguments(Scatter, as_array(missing_to_nan(pareto_shape(result))))
 end
+
+# overloads to set default labels
+# Note: these are annoying hacks, since it's not clear the best internal overload to use
+# to modify the plot after an axis has been internally created.
+
+function _paretoshapeplot(backend::Val{:Makie}, arg; attributes...)
+    plt = Makie.plot(ParetoShapePlot, arg; attributes...)
+    return _set_default_makie_labels!(plt)
+end
+function _paretoshapeplot!(backend::Val{:Makie}, args...; attributes...)
+    plt = Makie.plot!(ParetoShapePlot, args...; attributes...)
+    return _set_default_makie_labels!(plt)
+end
+function Makie.plot(result::PSISResult; attributes...)
+    plt = plot(ParetoShapePlot, result; attributes...)
+    return _set_default_makie_labels!(plt)
+end
+function Makie.plot!(result::PSISResult; attributes...)
+    plt = Makie.plot!(ParetoShapePlot, result; attributes...)
+    return _set_default_makie_labels!(plt)
+end
+function Makie.plot!(layoutable, result::PSISResult; attributes...)
+    plt = Makie.plot!(ParetoShapePlot, layoutable, result; attributes...)
+    return _set_default_makie_labels!(plt)
+end
+
+function _set_default_makie_labels!(plt)
+    labels = (xlabel = "Parameter index", ylabel = "Pareto shape")
+    for (k, label) in pairs(labels)
+        isempty(getproperty(plt.axis, k)[]) && setproperty!(plt.axis, k, label)
+    end
+    return plt
+end
