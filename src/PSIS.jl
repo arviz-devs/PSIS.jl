@@ -10,7 +10,8 @@ using Statistics: mean, median, quantile
 using StatsBase: StatsBase
 
 export PSISResult
-export psis, psis!, paretoshapeplot, paretoshapeplot!
+export psis, psis!
+export ParetoShapePlot, paretoshapeplot, paretoshapeplot!
 
 const PLOTTING_BACKEND = Ref(:Plots)
 
