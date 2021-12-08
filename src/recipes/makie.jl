@@ -1,5 +1,8 @@
 # Makie.jl recipes
 
+# if Makie is loaded, use Makie by default
+PLOTTING_BACKEND[] = :Makie
+
 # define an internal plotting recipe for shape values
 @recipe(ParetoShapePlot, pareto_shape) do scene
     l_theme = default_theme(scene, LineSegments)
