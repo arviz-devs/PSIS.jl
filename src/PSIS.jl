@@ -12,6 +12,8 @@ using StatsBase: StatsBase
 export PSISResult
 export psis, psis!, paretoshapeplot, paretoshapeplot!
 
+const PLOTTING_BACKEND = Ref(:Plots)
+
 include("utils.jl")
 include("generalized_pareto.jl")
 include("core.jl")

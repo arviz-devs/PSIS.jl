@@ -28,3 +28,17 @@ plot(result; showlines=true)
 ```
 """
 paretoshapeplot, paretoshapeplot!
+
+"""
+    plotting_backend!(backend::Symbol)
+
+Set default plotting backend. Valid values are `:Plots` and `:Makie`.
+"""
+plotting_backend!(backend::Symbol) = Base.setindex!(PLOTTING_BACKEND, backend)
+
+function paretoshapeplot(args...; backend=PLOTTING_BACKEND[], kw...)
+    return _paretoshapeplot(Val(backend), args...; kw...)
+end
+function paretoshapeplot!(args...; backend=PLOTTING_BACKEND[], kw...)
+    return _paretoshapeplot!(Val(backend), args...; kw...)
+end
