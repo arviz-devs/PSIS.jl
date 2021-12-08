@@ -3,6 +3,8 @@ using Plots
 using Test
 
 @testset "Plots.jl recipes" begin
+    PSIS.plotting_backend!(:Plots)
+
     @testset "$f" for f in (paretoshapeplot, paretoshapeplot!), sz in (100, (10, 100))
         result = psis(randn(sz...))
 
