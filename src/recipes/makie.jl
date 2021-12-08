@@ -23,6 +23,14 @@ end # module
 
 using .MakieRecipe: ParetoShapePlot
 
+# main plotting function
+function _paretoshapeplot(backend::Val{:Makie}, args...; attributes...)
+    return Makie.plot(ParetoShapePlot, args...; attributes...)
+end
+function _paretoshapeplot!(backend::Val{:Makie}, args...; attributes...)
+    return Makie.plot!(ParetoShapePlot, args...; attributes...)
+end
+
 function Makie.plot!(p::ParetoShapePlot)
     attrs = p.attributes
     points = p[1]
