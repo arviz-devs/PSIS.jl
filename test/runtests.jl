@@ -5,4 +5,5 @@ using Test
     include("generalized_pareto.jl")
     include("core.jl")
     include("plots.jl")
+    include("makie.jl")
 end
