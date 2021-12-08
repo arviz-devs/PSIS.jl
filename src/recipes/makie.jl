@@ -3,6 +3,11 @@
 # if Makie is loaded, use Makie by default
 PLOTTING_BACKEND[] = :Makie
 
+# encase the recipe in a module to avoid namespace pollution
+module MakieRecipe
+
+using ..Makie
+
 # define an internal plotting recipe for shape values
 @recipe(ParetoShapePlot, pareto_shape) do scene
     l_theme = default_theme(scene, LineSegments)
@@ -13,6 +18,10 @@ PLOTTING_BACKEND[] = :Makie
         showlines=false,
     )
 end
+
+end # module
+
+using .MakieRecipe: ParetoShapePlot
 
 function Makie.plot!(p::ParetoShapePlot)
     attrs = p.attributes
