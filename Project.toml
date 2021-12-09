@@ -24,6 +24,7 @@ julia = "1"
 [extras]
 AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -33,4 +34,4 @@ ReferenceTests = "324d217c-45ce-50fc-942e-d289b448e8cf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AxisArrays", "Distributions", "JLD2", "LogExpFunctions", "Logging", "Plots", "Random", "ReferenceTests", "Test"]
+test = ["AxisArrays", "Distributions", "JLD2", "GLMakie", "LogExpFunctions", "Logging", "Plots", "Random", "ReferenceTests", "Test"]
