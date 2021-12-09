@@ -39,7 +39,7 @@ using Test
     end
 
     @testset "paretoshapeplot!/plot!" begin
-        @testset "$f(::$T; showlines=$showlines) sz=$sz" for f! in (
+        @testset "$f!(::$T; showlines=$showlines) sz=$sz" for f! in (
                 paretoshapeplot!, Makie.plot!
             ),
             T in (PSISResult, Vector),
