@@ -1,5 +1,5 @@
 using PSIS
-using GLMakie
+using CairoMakie
 using Test
 
 @testset "Makie.jl recipes" begin
