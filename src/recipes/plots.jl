@@ -4,8 +4,12 @@
 mutable struct ParetoShapePlotConfig
     args
 end
-paretoshapeplot(args...; kw...) = RecipesBase.plot(ParetoShapePlotConfig(args); kw...)
-paretoshapeplot!(args...; kw...) = RecipesBase.plot!(ParetoShapePlotConfig(args); kw...)
+function _paretoshapeplot(::Val{:Plots}, args...; kw...)
+    return RecipesBase.plot(ParetoShapePlotConfig(args); kw...)
+end
+function _paretoshapeplot!(::Val{:Plots}, args...; kw...)
+    return RecipesBase.plot!(ParetoShapePlotConfig(args); kw...)
+end
 function paretoshapeplot!(plt::RecipesBase.AbstractPlot, args...; kw...)
     return RecipesBase.plot!(plt, ParetoShapePlotConfig(args); kw...)
 end

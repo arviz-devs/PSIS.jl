@@ -30,19 +30,11 @@ nothing # hide
 result # hide
 ```
 
-As indicated by the warnings, this is a poor choice of a proposal distribution, and estimates are unlikely to converge.
+As indicated by the warnings, this is a poor choice of a proposal distribution, and estimates are unlikely to converge (see [`PSISResult`](@ref) for an explanation of the shape thresholds).
 
 When running PSIS with many parameters, it is useful to plot the Pareto shape values to diagnose convergence.
-We can do this using Plots.jl.
-
-```@example 1
-using Plots
-plot(result; showlines=true, marker=:+, legend=false)
-```
-
-See [`PSISResult`](@ref) for an explanation of the shape thresholds.
+See [Plotting PSIS results](@ref) for examples.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
     [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
-
