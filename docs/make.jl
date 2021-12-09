@@ -1,4 +1,4 @@
-using Distributions, Plots, PSIS
+using CairoMakie, Distributions, Plots, PSIS
 using Documenter
 
 DocMeta.setdocmeta!(PSIS, :DocTestSetup, :(using PSIS); recursive=true)
@@ -9,7 +9,12 @@ makedocs(;
     repo="https://github.com/arviz-devs/PSIS.jl/blob/{commit}{path}#{line}",
     sitename="PSIS.jl",
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", "false") == "true", assets=String[]),
-    pages=["Home" => "index.md", "API" => "api.md", "Internal" => "internal.md"],
+    pages=[
+        "Home" => "index.md",
+        "Plotting" => "plotting.md",
+        "API" => "api.md",
+        "Internal" => "internal.md",
+    ],
 )
 
 deploydocs(; repo="github.com/arviz-devs/PSIS.jl.git", devbranch="main")
