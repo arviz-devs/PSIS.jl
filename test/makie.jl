@@ -23,14 +23,14 @@ using Test
             @test length(plots) == 5
             @test plots[5] isa Scatter
             @test plots[5].converted[1][] ==
-                Point2f0.(Base.OneTo(result.nparams), PSIS.as_array(result.pareto_shape))
+                Point2f.(Base.OneTo(result.nparams), PSIS.as_array(result.pareto_shape))
             linestyles = [:dot, :dashdot, :dash, :solid]
             yvals = [0, 0.5, 0.7, 1]
             line_xmin, line_xmax = sz isa Tuple ? (0.91, 10.09) : (1, 1)
             for i in 1:4
                 @test plots[i] isa LineSegments
                 @test plots[i].converted[1][] ==
-                    [Point2f0(line_xmin, yvals[i]), Point2f0(line_xmax, yvals[i])]
+                    [Point2f(line_xmin, yvals[i]), Point2f(line_xmax, yvals[i])]
                 @test plots[i].attributes[:linestyle][] == linestyles[i]
                 @test plots[i].attributes[:linewidth][] == 5
                 @test plots[i].attributes[:visible][] == showlines
@@ -60,14 +60,14 @@ using Test
             @test length(plots) == 5
             @test plots[5] isa Scatter
             @test plots[5].converted[1][] ==
-                Point2f0.(Base.OneTo(result.nparams), PSIS.as_array(result.pareto_shape))
+                Point2f.(Base.OneTo(result.nparams), PSIS.as_array(result.pareto_shape))
             linestyles = [:dot, :dashdot, :dash, :solid]
             yvals = [0, 0.5, 0.7, 1]
             line_xmin, line_xmax = sz isa Tuple ? (0.91, 10.09) : (1, 1)
             for i in 1:4
                 @test plots[i] isa LineSegments
                 @test plots[i].converted[1][] ==
-                    [Point2f0(line_xmin, yvals[i]), Point2f0(line_xmax, yvals[i])]
+                    [Point2f(line_xmin, yvals[i]), Point2f(line_xmax, yvals[i])]
                 @test plots[i].attributes[:linestyle][] == linestyles[i]
                 @test plots[i].attributes[:linewidth][] == 5
                 @test plots[i].attributes[:visible][] == showlines
