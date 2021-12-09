@@ -131,7 +131,8 @@ details and [`paretoshapeplot`](@ref) for a diagnostic plot.
 """
 function psis(logr, reff=1; kwargs...)
     T = float(eltype(logr))
-    logw = copyto!(similar(logr, T), logr)
+    logw = similar(logr, T)
+    copyto!(logw, logr)
     return psis!(logw, reff; kwargs...)
 end
 
