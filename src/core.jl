@@ -57,20 +57,14 @@ end
 
 function Base.getproperty(r::PSISResult, k::Symbol)
     if k === :weights
-        log_weights = getfield(r, :log_weights)
-        d = ndims(log_weights)
-        dims = d == 1 ? Colon() : ntuple(Base.Fix1(+, 1), d - 1)
-        return softmax(log_weights; dims=dims)
-    end
-    if k === :nparams
+        return exp.(getfield(r, :log_weights) .- getfield(r, :log_weights_norm))
+    elseif k === :nparams
         log_weights = getfield(r, :log_weights)
         return ndims(log_weights) == 1 ? 1 : size(log_weights, 1)
-    end
-    if k === :ndraws
+    elseif k === :ndraws
         log_weights = getfield(r, :log_weights)
         return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 2)
-    end
-    if k === :nchains
+    elseif k === :nchains
         log_weights = getfield(r, :log_weights)
         return size(log_weights, 3)
     end
