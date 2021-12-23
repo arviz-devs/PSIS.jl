@@ -86,10 +86,11 @@ end
 
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
+    psis!(log_ratios, reff = 1.0; kwargs...) -> PSISResult
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
-See [`psis!`](@ref) for a version that smoothes the ratios in-place.
+While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in-place.
 
 # Arguments
 
@@ -132,6 +133,8 @@ details and [`paretoshapeplot`](@ref) for a diagnostic plot.
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
+psis, psis!
+
 function psis(logr, reff=1; kwargs...)
     T = float(eltype(logr))
     logw = similar(logr, T)
@@ -139,14 +142,6 @@ function psis(logr, reff=1; kwargs...)
     return psis!(logw, reff; kwargs...)
 end
 
-"""
-    psis!(args, reff = 1.0; kwargs...)
-
-In-place compute Pareto smoothed importance sampling (PSIS) log weights.
-
-See [`psis`](@ref) for an out-of-place version and for description of arguments and return
-values.
-"""
 function psis!(
     logw::AbstractVector,
     reff=1;

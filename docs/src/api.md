@@ -3,7 +3,5 @@
 ```@docs
 PSISResult
 psis
-psis!
 paretoshapeplot
-paretoshapeplot!
 ```
