@@ -78,6 +78,10 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     return nothing
 end
 
+function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
+    return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,Distributions.GeneralizedPareto{T}}}
+end
+
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
 
