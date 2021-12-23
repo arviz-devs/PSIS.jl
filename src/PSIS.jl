@@ -1,12 +1,11 @@
 module PSIS
 
 using Distributions: Distributions
-using LinearAlgebra: dot
-using LogExpFunctions: logsumexp, softmax, softmax!
+using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
 using RecipesBase: RecipesBase
 using Requires: Requires
-using Statistics: mean, median, quantile
+using Statistics: Statistics
 using StatsBase: StatsBase
 
 export PSISResult

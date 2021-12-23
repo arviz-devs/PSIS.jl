@@ -30,7 +30,7 @@ end
 function Distributions.suffstats(d::GeneralizedParetoKnownMuTheta, x::AbstractArray)
     μ = d.μ
     θ = d.θ
-    ξ = mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of ξ
+    ξ = Statistics.mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of ξ
     return GeneralizedParetoKnownMuThetaStats(μ, θ, ξ)
 end
 
@@ -135,7 +135,7 @@ function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # estimate mean θ over the quadrature points
     # with weights as the normalized profile likelihood
     lθ = map(θ -> _gpd_profile_loglikelihood(μ, θ, xsorted, n), θ)
-    lθ_norm = logsumexp(lθ)
+    lθ_norm = LogExpFunctions.logsumexp(lθ)
     θ_hat = @inbounds sum(1:npoints) do j
         wⱼ = exp(lθ[j] - lθ_norm)
         return θ[j] * wⱼ
@@ -168,7 +168,7 @@ function _gpd_empirical_prior_improved(μ, xsorted, n=length(xsorted))
     x1mp2 = map(qi -> xsorted[max(1, fld(qi * twon + 1, 200))], q2)
     expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
     σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
-    σ_star = inv(2 * median(σp))
+    σ_star = inv(2 * Statistics.median(σp))
     ξ_star = 1
     return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
 end
