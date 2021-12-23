@@ -110,6 +110,7 @@ See [`psis!`](@ref) for a version that smoothes the ratios in-place.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
+  - `warn=true`: If `true`, warning messages are delivered
 
 # Returns
 
@@ -144,12 +145,18 @@ In-place compute Pareto smoothed importance sampling (PSIS) log weights.
 See [`psis`](@ref) for an out-of-place version and for description of arguments and return
 values.
 """
-function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=false)
+function psis!(
+    logw::AbstractVector,
+    reff=1;
+    sorted::Bool=issorted(logw),
+    improved::Bool=false,
+    warn::Bool=true,
+)
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
     if M < 5
-        @warn "Insufficient tail draws to fit the generalized Pareto distribution."
+        warn && @warn "Insufficient tail draws to fit the generalized Pareto distribution."
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
     perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
@@ -158,7 +165,7 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     @inbounds logw_tail = @views logw[perm[tail_range]]
     @inbounds logu = logw[perm[icut]]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
-    check_pareto_shape(tail_dist)
+    warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; kwargs...)
@@ -179,8 +186,6 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
     tail_lengths = map(r -> r.tail_length, results)
     tail_dists = map(r -> r.tail_dist, results)
     result = PSISResult(logw, logw_norms, reffs, tail_lengths, tail_dists)
-    # warn for bad shape
-    check_pareto_shape(result)
     return result
 end
 
