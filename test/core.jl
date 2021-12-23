@@ -201,17 +201,10 @@ end
         sz = (5, 1_000, 4)
         x = rand(rng, proposal, sz)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
-        expected_khats = Dict(
-            (0.7, false) => [0.45848943, 0.73939023, 0.64318395, 0.8255847, 0.87575057],
-            (1.2, false) => [0.42288872, 0.6686345, 0.73749322, 0.76318927, 0.83505587],
-            (0.7, true) => [0.45334008, 0.74012806, 0.64558096, 0.82759211, 0.8813605],
-            (1.2, true) => [0.4225601, 0.67035541, 0.74046699, 0.76625258, 0.8395082],
-        )
         @testset for r_eff in (0.7, 1.2), improved in (true, false)
             r_effs = fill(r_eff, sz[1])
             result = psis(logr, r_effs; improved=improved)
             logw = result.log_weights
-            k = result.pareto_shape
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
             if improved
@@ -219,11 +212,12 @@ end
             end
             @test_reference(
                 "references/$basename.jld2",
-                Dict("data" => logw),
-                by = (ref, x) -> isapprox(ref["data"], x["data"]; rtol=1e-6),
+                Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
+                by =
+                    (ref, x) ->
+                        isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
+                            isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
             )
-            k_ref = expected_khats[(r_eff, improved)]
-            @test k ≈ k_ref
         end
     end
 
