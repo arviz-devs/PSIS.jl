@@ -172,14 +172,13 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
     # allocate containers, calling psis! for first parameter to determine eltype
     logw_firstdraw = first_draw(logw)
     reffs = reff isa Number ? fill!(similar(logw_firstdraw), reff) : reff
-    r1 = psis!(vec(param_draws(logw, 1)), reffs[1]; kwargs...)
+    r1 = psis!(vec(param_draws(logw, 1)), reffs[1]; warn=false, kwargs...)
     results = similar(logw_firstdraw, _promote_result_type(typeof(r1)))
-    # i, inds = Iterators.peel(eachindex(results, reffs))
-    results[1] = r1
-    # inds_vec = collect(inds)
+    i, inds = Iterators.peel(eachindex(results, reffs))
+    results[i] = r1
     # call psis! for remaining parameters
-    Threads.@threads for i in eachindex(results, reffs)
-        results[i] = psis!(vec(param_draws(logw, i)), reffs[i]; kwargs...)
+    Threads.@threads for i in collect(inds)
+        results[i] = psis!(vec(param_draws(logw, i)), reffs[i]; warn=false, kwargs...)
     end
     # combine results
     logw_norms = map(r -> r.log_weights_norm, results)
