@@ -158,26 +158,25 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; kwargs...)
-    Tdist = Union{Distributions.GeneralizedPareto{eltype(logw)},Missing}
-    logw_firstcol = view(logw, :, ntuple(_ -> 1, ndims(logw) - 1)...)
-    reff_vec = reff isa Number ? fill!(similar(logw_firstcol), reff) : reff
-    # support both 2D and 3D arrays, flattening the final dimension
-    r1 = psis!(vec(selectdim(logw, 1, 1)), reff_vec[1]; kwargs...)
-    # for arrays with named dimensions, this pattern ensures tail_lengths and tail_dists
-    # have the same names
-    logw_norm = similar(logw_firstcol)
-    logw_norm[1] = r1.log_weights_norm
-    tail_lengths = similar(logw_firstcol, Int)
-    tail_lengths[1] = r1.tail_length
-    tail_dists = similar(logw_firstcol, Tdist)
-    tail_dists[1] = r1.tail_dist
-    Threads.@threads for i in eachindex(tail_dists, reff_vec, tail_lengths, tail_dists)
-        ri = psis!(vec(selectdim(logw, 1, i)), reff_vec[i]; warn=false, kwargs...)
-        logw_norm[i] = ri.log_weights_norm
-        tail_lengths[i] = ri.tail_length
-        tail_dists[i] = ri.tail_dist
+    # allocate containers, calling psis! for first parameter to determine eltype
+    logw_firstdraw = first_draw(logw)
+    reffs = reff isa Number ? fill!(similar(logw_firstdraw), reff) : reff
+    r1 = psis!(vec(param_draws(logw, 1)), reffs[1]; kwargs...)
+    results = similar(logw_firstdraw, _promote_result_type(typeof(r1)))
+    # i, inds = Iterators.peel(eachindex(results, reffs))
+    results[1] = r1
+    # inds_vec = collect(inds)
+    # call psis! for remaining parameters
+    Threads.@threads for i in eachindex(results, reffs)
+        results[i] = psis!(vec(param_draws(logw, i)), reffs[i]; kwargs...)
     end
-    result = PSISResult(logw, logw_norm, reff_vec, tail_lengths, map(identity, tail_dists))
+    # combine results
+    logw_norms = map(r -> r.log_weights_norm, results)
+    tail_lengths = map(r -> r.tail_length, results)
+    tail_dists = map(r -> r.tail_dist, results)
+    result = PSISResult(logw, logw_norms, reffs, tail_lengths, tail_dists)
+    # warn for bad shape
+    check_pareto_shape(result)
     return result
 end
 
@@ -186,6 +185,7 @@ pareto_shape(dist::Distributions.GeneralizedPareto) = Distributions.shape(dist)
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
 pareto_shape(dists) = map(pareto_shape, dists)
 
+check_pareto_shape(result::PSISResult) = check_pareto_shape(result.tail_dist)
 function check_pareto_shape(dist::Distributions.GeneralizedPareto)
     ξ = pareto_shape(dist)
     if ξ ≥ 1
