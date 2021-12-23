@@ -204,8 +204,8 @@ tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
 function psis_tail!(logw, logμ, M=length(logw), improved=false)
     T = eltype(logw)
     logw_max = logw[M]
-    # to improve numerical stability, we first scale the log-weights to have a maximum of 1,
-    # equivalent to shifting the log-weights to have a maximum of 0.
+    # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
+    # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
     w = (logw .= exp.(logw .- logw_max))
     tail_dist_scaled = StatsBase.fit(
