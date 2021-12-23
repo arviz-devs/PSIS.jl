@@ -3,20 +3,22 @@ using Test
 using Random
 using ReferenceTests
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean, shape
-using LogExpFunctions: softmax
+using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
 
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
+        log_weights_norm = logsumexp(log_weights)
         tail_length = 100
         reff = 2.0
         tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test sort(propertynames(result)) == [
             :log_weights,
+            :log_weights_norm,
             :nchains,
             :ndraws,
             :nparams,
@@ -27,7 +29,8 @@ using AxisArrays: AxisArrays
             :weights,
         ]
         @test result.log_weights == log_weights
-        @test result.weights == softmax(log_weights)
+        @test result.log_weights_norm == log_weights_norm
+        @test result.weights ≈ softmax(log_weights)
         @test result.reff == reff
         @test result.nparams == 1
         @test result.ndraws == 500
@@ -44,6 +47,7 @@ using AxisArrays: AxisArrays
 
     @testset "array log-weights" begin
         log_weights = randn(3, 500, 4)
+        log_weights_norm = dropdims(logsumexp(log_weights; dims=(2, 3)); dims=(2, 3))
         tail_length = [1600, 1601, 1602]
         reff = [0.8, 0.9, 1.1]
         tail_dist = [
@@ -51,10 +55,11 @@ using AxisArrays: AxisArrays
             GeneralizedPareto(1.0, 1.0, 0.6),
             GeneralizedPareto(1.0, 1.0, 0.7),
         ]
-        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.weights == softmax(log_weights; dims=(2, 3))
+        @test result.log_weights_norm == log_weights_norm
+        @test result.weights ≈ softmax(log_weights; dims=(2, 3))
         @test result.reff == reff
         @test result.nparams == 3
         @test result.ndraws == 500
