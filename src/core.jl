@@ -79,7 +79,9 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
 end
 
 function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
-    return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,Distributions.GeneralizedPareto{T}}}
+    return PSISResult{
+        T,W,N,R,L,D2
+    } where {D2<:Union{D,Missing,Distributions.GeneralizedPareto{T}}}
 end
 
 """
