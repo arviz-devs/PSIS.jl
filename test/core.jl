@@ -237,7 +237,7 @@ end
             result = psis(logr)
             @test result.log_weights isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :reff, :log_weights_norm)
                 prop = getproperty(result, k)
                 @test prop isa AxisArrays.AxisArray
                 @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 1),)
