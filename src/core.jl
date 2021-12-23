@@ -5,7 +5,7 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
 # Properties
 
-  - `log_weights`: unnormalized Pareto-smoothed log weights
+  - `log_weights`: un-normalized Pareto-smoothed log weights
   - `weights`: normalized Pareto-smoothed weights (allocates a copy)
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
   - `nparams`: number of parameters in `log_weights`
@@ -13,6 +13,7 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `nchains`: number of chains in `log_weights`
   - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
+  - `log_weights_norm`: the logarithm of the normalization constant of `log_weights`
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
     `log_weights`
@@ -42,8 +43,9 @@ See [`paretoshapeplot`](@ref) for a diagnostic plot.
     Pareto smoothed importance sampling.
     [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
 """
-struct PSISResult{T,W<:AbstractArray{T},R,L,D}
+struct PSISResult{T,W<:AbstractArray{T},N,R,L,D}
     log_weights::W
+    log_weights_norm::N
     reff::R
     tail_length::L
     tail_dist::D
@@ -150,7 +152,7 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     M = tail_length(reff_val, S)
     if M < 5
         @warn "Insufficient tail draws to fit the generalized Pareto distribution."
-        return PSISResult(logw, reff, M, missing)
+        return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
     perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
     icut = S - M
@@ -159,7 +161,7 @@ function psis!(logw::AbstractVector, reff=1; sorted=issorted(logw), improved=fal
     @inbounds logu = logw[perm[icut]]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
     check_pareto_shape(tail_dist)
-    return PSISResult(logw, reff_val, M, tail_dist)
+    return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; kwargs...)
     Tdist = Union{Distributions.GeneralizedPareto{eltype(logw)},Missing}
@@ -169,16 +171,20 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
     r1 = psis!(vec(selectdim(logw, 1, 1)), reff_vec[1]; kwargs...)
     # for arrays with named dimensions, this pattern ensures tail_lengths and tail_dists
     # have the same names
+    logw_norm = similar(logw_firstcol)
+    logw_norm[1] = r1.log_weights_norm
     tail_lengths = similar(logw_firstcol, Int)
     tail_lengths[1] = r1.tail_length
     tail_dists = similar(logw_firstcol, Tdist)
     tail_dists[1] = r1.tail_dist
     Threads.@threads for i in eachindex(tail_dists, reff_vec, tail_lengths, tail_dists)
-        ri = psis!(vec(selectdim(logw, 1, i)), reff_vec[i]; kwargs...)
+        ri = psis!(vec(selectdim(logw, 1, i)), reff_vec[i]; warn=false, kwargs...)
+        logw_norm[i] = ri.log_weights_norm
         tail_lengths[i] = ri.tail_length
         tail_dists[i] = ri.tail_dist
     end
-    return PSISResult(logw, reff_vec, tail_lengths, map(identity, tail_dists))
+    result = PSISResult(logw, logw_norm, reff_vec, tail_lengths, map(identity, tail_dists))
+    return result
 end
 
 pareto_shape(::Missing) = missing
