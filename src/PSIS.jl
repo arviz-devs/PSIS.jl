@@ -2,6 +2,7 @@ module PSIS
 
 using Distributions: Distributions
 using LogExpFunctions: LogExpFunctions
+using PrettyTables: PrettyTables
 using Printf: @sprintf
 using RecipesBase: RecipesBase
 using Requires: Requires

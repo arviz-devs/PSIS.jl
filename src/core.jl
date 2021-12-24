@@ -1,3 +1,11 @@
+# range, description, condition
+const SHAPE_DIAGNOSTIC_CATEGORIES = (
+    ("(-Inf, 0.5]", "good", x -> !ismissing(x) && x ≤ 0.5),
+    ("(0.5, 0.7]", "okay", x -> !ismissing(x) && 0.5 < x ≤ 0.7),
+    ("(0.7, 1]", "bad", x -> !ismissing(x) && 0.7 < x ≤ 1),
+    ("(1, Inf)", "very bad", x -> !ismissing(x) && x > 1),
+    ("——", "missing", ismissing),
+)
 const BAD_SHAPE_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
 const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
 const MISSING_SHAPE_SUMMARY = "Total number of draws should in general exceed 25."
@@ -80,9 +88,56 @@ function Base.getproperty(r::PSISResult, k::Symbol)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
-    println(io, typeof(r), ":")
-    print(io, "    pareto_shape: ", r.pareto_shape)
-    return nothing
+    npoints = r.nparams
+    nchains = r.nchains
+    println(
+        io, "PSISResult with $npoints parameters, $(r.ndraws) draws, and $nchains chains"
+    )
+    return _print_pareto_shape_summary(io, r; newline_at_end=false)
+end
+
+function pareto_shape_summary(r::PSISResult; kwargs...)
+    return _print_pareto_shape_summary(stdout, r; kwargs...)
+end
+function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
+    ξ = as_array(pareto_shape(r))
+    ess = as_array(ess_is(r))
+    npoints = r.nparams
+    rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
+        inds = findall(cond, ξ)
+        count = length(inds)
+        perc = 100 * count / npoints
+        ess_min = if count == 0 || desc == "too few draws"
+            missing
+        else
+            minimum(view(ess, inds))
+        end
+        return (range=range, desc=desc, count_perc=(count, perc), ess_min=ess_min)
+    end
+
+    return PrettyTables.pretty_table(
+        io,
+        collect(rows);
+        title="Pareto shape (k) diagnostic values:",
+        title_crayon=PrettyTables.crayon"",
+        header=["", "", "Count", "Min. ESS"],
+        alignment=[:r, :l, :l, :l],
+        alignment_anchor_regex=Dict(3 => [r" \("]),
+        filters_row=((data, i) -> data[i].count_perc[1] > 0,),
+        formatters=(
+            (data, i, j) -> j == 3 ? "$(data[1]) ($(round(data[2]; digits=1))%)" : data,
+            (data, i, j) -> j == 4 ? (ismissing(data) ? "——" : floor(Int, data)) : data,
+        ),
+        highlighters=(
+            PrettyTables.hl_cell([(2, 3)], PrettyTables.crayon"yellow"),
+            PrettyTables.hl_cell([(3, 3)], PrettyTables.crayon"light_red bold"),
+            PrettyTables.hl_cell([(4, 3)], PrettyTables.crayon"red bold"),
+        ),
+        crop=:horizontal,
+        hlines=:none,
+        vlines=:none,
+        kwargs...,
+    )
 end
 
 function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
