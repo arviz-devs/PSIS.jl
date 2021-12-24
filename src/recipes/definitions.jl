@@ -12,8 +12,8 @@ Plot shape parameters of fitted Pareto tail distributions for diagnosing converg
 
   - `showlines=false`: if `true`, plot horizontal lines indicating relevant Pareto shape
     thresholds are drawn. See [`PSISResult`](@ref) for explanation of thresholds.
-  - `backend::Symbol`: backend to use for plotting, defaulting to `:Plots`, unless `:Makie` is
-    available.
+  - `backend::Symbol`: backend to use for plotting, defaulting to `:Plots`, unless `:Makie`
+    is available.
 
 All remaining keywords are passed to the plotting backend.
 
