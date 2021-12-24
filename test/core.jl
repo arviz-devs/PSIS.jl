@@ -2,7 +2,8 @@ using PSIS
 using Test
 using Random
 using ReferenceTests
-using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean, shape
+using Distributions:
+    GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf, mean, shape
 using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
