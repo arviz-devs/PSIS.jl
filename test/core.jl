@@ -78,7 +78,8 @@ using AxisArrays: AxisArrays
             rng = MersenneTwister(42)
             x = rand(rng, proposal, 30, 100)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
-            result = psis(log_ratios)
+            reff = [100; ones(29)]
+            result = psis(log_ratios, reff)
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 30 parameters, 100 draws, and 1 chains
                 Pareto shape (k) diagnostic values:
@@ -86,7 +87,8 @@ using AxisArrays: AxisArrays
                  (-Inf, 0.5]  good       1 (3.3%)   95
                   (0.5, 0.7]  okay       3 (10.0%)  97
                     (0.7, 1]  bad        5 (16.7%)  ——
-                    (1, Inf)  very bad  21 (70.0%)  ——"""
+                    (1, Inf)  very bad  20 (66.7%)  ——
+                          ——  missing    1 (3.3%)   ——"""
         end
     end
 end
