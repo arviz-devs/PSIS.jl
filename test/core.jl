@@ -38,6 +38,7 @@ using AxisArrays: AxisArrays
         @test result.tail_length == tail_length
         @test result.tail_dist == tail_dist
         @test result.pareto_shape == 0.5
+        @test result.ess ≈ ess_is(result)
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) ==

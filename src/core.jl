@@ -8,6 +8,8 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `log_weights`: un-normalized Pareto-smoothed log weights
   - `weights`: normalized Pareto-smoothed weights (allocates a copy)
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
+  - `ess`: estimated effective sample size of estimate of mean using smoothed importance
+    samples
   - `nparams`: number of parameters in `log_weights`
   - `ndraws`: number of draws in `log_weights`
   - `nchains`: number of chains in `log_weights`
@@ -69,6 +71,7 @@ function Base.getproperty(r::PSISResult, k::Symbol)
         return size(log_weights, 3)
     end
     k === :pareto_shape && return pareto_shape(r)
+    k === :ess && return ess_is(r)
     return getfield(r, k)
 end
 
