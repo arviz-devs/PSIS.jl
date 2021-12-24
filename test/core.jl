@@ -41,8 +41,11 @@ using AxisArrays: AxisArrays
         @test result.ess ≈ ess_is(result)
 
         @testset "show" begin
-            @test sprint(show, "text/plain", result) ==
-                "$(typeof(result)):\n    pareto_shape: 0.5"
+            @test sprint(show, "text/plain", result) == """
+                PSISResult with 1 parameters, 500 draws, and 1 chains
+                Pareto shape (k) diagnostic values:
+                                    Count       Min. ESS
+                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, result.ess))"""
         end
     end
 
@@ -70,8 +73,20 @@ using AxisArrays: AxisArrays
         @test result.pareto_shape == [0.5, 0.6, 0.7]
 
         @testset "show" begin
-            @test sprint(show, "text/plain", result) ==
-                "$(typeof(result)):\n    pareto_shape: [0.5, 0.6, 0.7]"
+            proposal = Normal()
+            target = TDist(7)
+            rng = MersenneTwister(42)
+            x = rand(rng, proposal, 30, 100)
+            log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
+            result = psis(log_ratios)
+            @test sprint(show, "text/plain", result) == """
+                PSISResult with 30 parameters, 100 draws, and 1 chains
+                Pareto shape (k) diagnostic values:
+                                        Count       Min. ESS
+                 (-Inf, 0.5]  good       1 (3.3%)   95
+                  (0.5, 0.7]  okay       3 (10.0%)  97
+                    (0.7, 1]  bad        5 (16.7%)  ——
+                    (1, Inf)  very bad  21 (70.0%)  ——"""
         end
     end
 end
