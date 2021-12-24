@@ -10,23 +10,24 @@ missing_to_nan(x::AbstractArray{>:Missing}) = replace(x, missing => NaN)
 missing_to_nan(::Missing) = NaN
 missing_to_nan(x) = x
 
-# dimensions corresponding to draws and chains
-function sample_dims(x::AbstractArray)
-    d = param_dim(x)
-    return filter(!=(d), ntuple(identity, ndims(x)))
-end
-sample_dims(::AbstractVector) = (1,)
-
 # dimension corresponding to parameters
-param_dim(x) = 1
+function param_dim(x)
+    @assert ndims(x) > 1
+    return 1
+end
 
 # view of first draw from first chain (i.e. vector of parameters)
 function first_draw(x::AbstractArray)
-    d = ndims(x)
-    @assert d > 1
-    dims = Base.setindex(ntuple(one, d), :, param_dim(x))
+    dims = Base.setindex(ntuple(one, ndims(x)), :, param_dim(x))
     return view(x, dims...)
 end
 
 # view of all draws 
 param_draws(x::AbstractArray, i::Int) = selectdim(x, param_dim(x), i)
+
+# dimensions corresponding to draws and chains
+function sample_dims(x::AbstractArray)
+    d = param_dim(x)
+    return filter(!=(d), ntuple(identity, ndims(x)))
+end
+sample_dims(::AbstractVector) = Colon()
