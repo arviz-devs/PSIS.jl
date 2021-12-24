@@ -3,20 +3,22 @@ using Test
 using Random
 using ReferenceTests
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, logpdf, mean, shape
-using LogExpFunctions: softmax
+using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
 
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
+        log_weights_norm = logsumexp(log_weights)
         tail_length = 100
         reff = 2.0
         tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test sort(propertynames(result)) == [
             :log_weights,
+            :log_weights_norm,
             :nchains,
             :ndraws,
             :nparams,
@@ -27,7 +29,8 @@ using AxisArrays: AxisArrays
             :weights,
         ]
         @test result.log_weights == log_weights
-        @test result.weights == softmax(log_weights)
+        @test result.log_weights_norm == log_weights_norm
+        @test result.weights ≈ softmax(log_weights)
         @test result.reff == reff
         @test result.nparams == 1
         @test result.ndraws == 500
@@ -35,6 +38,7 @@ using AxisArrays: AxisArrays
         @test result.tail_length == tail_length
         @test result.tail_dist == tail_dist
         @test result.pareto_shape == 0.5
+        @test result.ess ≈ ess_is(result)
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) ==
@@ -44,6 +48,7 @@ using AxisArrays: AxisArrays
 
     @testset "array log-weights" begin
         log_weights = randn(3, 500, 4)
+        log_weights_norm = dropdims(logsumexp(log_weights; dims=(2, 3)); dims=(2, 3))
         tail_length = [1600, 1601, 1602]
         reff = [0.8, 0.9, 1.1]
         tail_dist = [
@@ -51,10 +56,11 @@ using AxisArrays: AxisArrays
             GeneralizedPareto(1.0, 1.0, 0.6),
             GeneralizedPareto(1.0, 1.0, 0.7),
         ]
-        result = PSISResult(log_weights, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.weights == softmax(log_weights; dims=(2, 3))
+        @test result.log_weights_norm == log_weights_norm
+        @test result.weights ≈ softmax(log_weights; dims=(2, 3))
         @test result.reff == reff
         @test result.nparams == 3
         @test result.ndraws == 500
@@ -144,13 +150,15 @@ end
         @test ismissing(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
-            "Warning: Insufficient tail draws to fit the generalized Pareto distribution",
+            "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
             msg,
         )
 
         io = IOBuffer()
-        x = rand(Exponential(100), 1_000)
-        logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
+        rng = MersenneTwister(42)
+        x = rand(rng, Exponential(50), 1_000)
+        logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
+        result = psis(logr)
         result = with_logger(SimpleLogger(io)) do
             psis(logr)
         end
@@ -158,7 +166,7 @@ end
         @test result.pareto_shape > 0.7
         msg = String(take!(io))
         @test occursin(
-            "Resulting importance sampling estimates are likely to be unstable", msg
+            "Warning: Pareto shape k = 0.73 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -167,8 +175,7 @@ end
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape=1.1 ≥ 1. Resulting importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.",
-            msg,
+            "Warning: Pareto shape k = 1.1 > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -177,8 +184,7 @@ end
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape=0.8 ≥ 0.7. Resulting importance sampling estimates are likely to be unstable.",
-            msg,
+            "Warning: Pareto shape k = 0.8 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -187,6 +193,30 @@ end
         end
         msg = String(take!(io))
         @test isempty(msg)
+
+        tail_dist = [
+            missing,
+            GeneralizedPareto(0, 1, 0.69),
+            GeneralizedPareto(0, 1, 0.71),
+            GeneralizedPareto(0, 1, 1.1),
+        ]
+        io = IOBuffer()
+        with_logger(SimpleLogger(io)) do
+            PSIS.check_pareto_shape(tail_dist)
+        end
+        msg = String(take!(io))
+        @test occursin(
+            "Warning: 1 parameters had Pareto shape values 0.7 < k ≤ 1. $(PSIS.BAD_SHAPE_SUMMARY)",
+            msg,
+        )
+        @test occursin(
+            "Warning: 1 parameters had Pareto shape values k > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)",
+            msg,
+        )
+        @test occursin(
+            "Warning: 1 parameters had insufficient tail draws to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
+            msg,
+        )
     end
 
     @testset "test against reference values" begin
@@ -196,17 +226,10 @@ end
         sz = (5, 1_000, 4)
         x = rand(rng, proposal, sz)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
-        expected_khats = Dict(
-            (0.7, false) => [0.45848943, 0.73939023, 0.64318395, 0.8255847, 0.87575057],
-            (1.2, false) => [0.42288872, 0.6686345, 0.73749322, 0.76318927, 0.83505587],
-            (0.7, true) => [0.45334008, 0.74012806, 0.64558096, 0.82759211, 0.8813605],
-            (1.2, true) => [0.4225601, 0.67035541, 0.74046699, 0.76625258, 0.8395082],
-        )
         @testset for r_eff in (0.7, 1.2), improved in (true, false)
             r_effs = fill(r_eff, sz[1])
             result = psis(logr, r_effs; improved=improved)
             logw = result.log_weights
-            k = result.pareto_shape
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
             if improved
@@ -214,11 +237,12 @@ end
             end
             @test_reference(
                 "references/$basename.jld2",
-                Dict("data" => logw),
-                by = (ref, x) -> isapprox(ref["data"], x["data"]; rtol=1e-6),
+                Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
+                by =
+                    (ref, x) ->
+                        isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
+                            isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
             )
-            k_ref = expected_khats[(r_eff, improved)]
-            @test k ≈ k_ref
         end
     end
 
@@ -238,7 +262,7 @@ end
             result = psis(logr)
             @test result.log_weights isa AxisArrays.AxisArray
             @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :reff, :log_weights_norm)
                 prop = getproperty(result, k)
                 @test prop isa AxisArrays.AxisArray
                 @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 1),)
