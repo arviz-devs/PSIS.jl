@@ -10,6 +10,13 @@ missing_to_nan(x::AbstractArray{>:Missing}) = replace(x, missing => NaN)
 missing_to_nan(::Missing) = NaN
 missing_to_nan(x) = x
 
+# dimensions corresponding to draws and chains
+function sample_dims(x::AbstractArray)
+    d = param_dim(x)
+    return filter(!=(d), ntuple(identity, ndims(x)))
+end
+sample_dims(::AbstractVector) = (1,)
+
 # dimension corresponding to parameters
 param_dim(x) = 1
 
