@@ -1,3 +1,7 @@
+const BAD_SHAPE_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
+const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
+const MISSING_SHAPE_SUMMARY = "Total number of draws should in general exceed 25."
+
 """
     PSISResult
 
@@ -28,14 +32,14 @@ be used to diagnose reliability and convergence of estimates using the importanc
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
     PSIS both are reliable.
-  - if ``k < \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
+  - if ``k ≤ \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
     the central limit theorem holds. As ``k`` approaches the upper bound, IS becomes less
     reliable, while PSIS still works well but with a higher RMSE.
-  - if ``\\frac{1}{2} ≤ k < 0.7``, then the variance is infinite, and IS can behave quite
+  - if ``\\frac{1}{2} < k ≤ 0.7``, then the variance is infinite, and IS can behave quite
     poorly. However, PSIS works well in this regime.
-  - if ``0.7 ≤ k < 1``, then it quickly becomes impractical to collect enough importance
+  - if ``0.7 < k ≤ 1``, then it quickly becomes impractical to collect enough importance
     weights to reliably compute estimates, and importance sampling is not recommended.
-  - if ``k ≥ 1``, then neither the variance nor the mean of the raw importance ratios
+  - if ``k > 1``, then neither the variance nor the mean of the raw importance ratios
     exists. The convergence rate is close to zero, and bias can be large with practical
     sample sizes.
 
@@ -156,7 +160,8 @@ function psis!(
     reff_val = first(reff)
     M = tail_length(reff_val, S)
     if M < 5
-        warn && @warn "Insufficient tail draws to fit the generalized Pareto distribution."
+        warn &&
+            @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
     perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
@@ -168,7 +173,7 @@ function psis!(
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
-function psis!(logw::AbstractArray, reff=1; kwargs...)
+function psis!(logw::AbstractArray, reff=1; warn::Bool=true, kwargs...)
     # allocate containers, calling psis! for first parameter to determine eltype
     logw_firstdraw = first_draw(logw)
     reffs = reff isa Number ? fill!(similar(logw_firstdraw), reff) : reff
@@ -185,6 +190,8 @@ function psis!(logw::AbstractArray, reff=1; kwargs...)
     tail_lengths = map(r -> r.tail_length, results)
     tail_dists = map(r -> r.tail_dist, results)
     result = PSISResult(logw, logw_norms, reffs, tail_lengths, tail_dists)
+    # warn for bad shape
+    warn && check_pareto_shape(result)
     return result
 end
 
@@ -195,14 +202,28 @@ pareto_shape(dists) = map(pareto_shape, dists)
 
 check_pareto_shape(result::PSISResult) = check_pareto_shape(result.tail_dist)
 function check_pareto_shape(dist::Distributions.GeneralizedPareto)
-    ξ = pareto_shape(dist)
-    if ξ ≥ 1
-        @warn "Pareto shape=$(@sprintf("%.2g", ξ)) ≥ 1. Resulting importance sampling " *
-            "estimates are likely to be unstable and are unlikely to converge with " *
-            "additional samples."
-    elseif ξ ≥ 0.7
-        @warn "Pareto shape=$(@sprintf("%.2g", ξ)) ≥ 0.7. Resulting importance sampling " *
-            "estimates are likely to be unstable."
+    k = pareto_shape(dist)
+    if k > 1
+        @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_SHAPE_SUMMARY"
+    elseif k > 0.7
+        @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 0.7. $BAD_SHAPE_SUMMARY"
+    end
+    return nothing
+end
+function check_pareto_shape(
+    dists::AbstractVector{<:Union{Missing,Distributions.GeneralizedPareto}}
+)
+    nmissing = count(ismissing, dists)
+    ngt07 = count(x -> !(ismissing(x)) && pareto_shape(x) > 0.7, dists)
+    ngt1 = iszero(ngt07) ? ngt07 : count(x -> !(ismissing(x)) && pareto_shape(x) > 1, dists)
+    if ngt07 > ngt1
+        @warn "$(ngt07 - ngt1) parameters had Pareto shape values 0.7 < k ≤ 1. $BAD_SHAPE_SUMMARY"
+    end
+    if ngt1 > 0
+        @warn "$ngt1 parameters had Pareto shape values k > 1. $VERY_BAD_SHAPE_SUMMARY"
+    end
+    if nmissing > 0
+        @warn "$nmissing parameters had insufficient tail draws to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
     end
     return nothing
 end

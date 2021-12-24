@@ -150,13 +150,15 @@ end
         @test ismissing(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
-            "Warning: Insufficient tail draws to fit the generalized Pareto distribution",
+            "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
             msg,
         )
 
         io = IOBuffer()
-        x = rand(Exponential(100), 1_000)
-        logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(1000), x)
+        rng = MersenneTwister(42)
+        x = rand(rng, Exponential(50), 1_000)
+        logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
+        result = psis(logr)
         result = with_logger(SimpleLogger(io)) do
             psis(logr)
         end
@@ -164,7 +166,7 @@ end
         @test result.pareto_shape > 0.7
         msg = String(take!(io))
         @test occursin(
-            "Resulting importance sampling estimates are likely to be unstable", msg
+            "Warning: Pareto shape k = 0.73 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -173,8 +175,7 @@ end
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape=1.1 ≥ 1. Resulting importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.",
-            msg,
+            "Warning: Pareto shape k = 1.1 > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -183,8 +184,7 @@ end
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape=0.8 ≥ 0.7. Resulting importance sampling estimates are likely to be unstable.",
-            msg,
+            "Warning: Pareto shape k = 0.8 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -193,6 +193,30 @@ end
         end
         msg = String(take!(io))
         @test isempty(msg)
+
+        tail_dist = [
+            missing,
+            GeneralizedPareto(0, 1, 0.69),
+            GeneralizedPareto(0, 1, 0.71),
+            GeneralizedPareto(0, 1, 1.1),
+        ]
+        io = IOBuffer()
+        with_logger(SimpleLogger(io)) do
+            PSIS.check_pareto_shape(tail_dist)
+        end
+        msg = String(take!(io))
+        @test occursin(
+            "Warning: 1 parameters had Pareto shape values 0.7 < k ≤ 1. $(PSIS.BAD_SHAPE_SUMMARY)",
+            msg,
+        )
+        @test occursin(
+            "Warning: 1 parameters had Pareto shape values k > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)",
+            msg,
+        )
+        @test occursin(
+            "Warning: 1 parameters had insufficient tail draws to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
+            msg,
+        )
     end
 
     @testset "test against reference values" begin

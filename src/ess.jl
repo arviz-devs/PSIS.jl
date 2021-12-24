@@ -1,4 +1,4 @@
-"""    
+"""
     ess_is(weights; reff=1)
 
 Estimate effective sample size (ESS) for importance sampling over the sample dimensions.
@@ -19,7 +19,6 @@ Estimate ESS for Pareto-smoothed importance sampling.
     
     ESS estimates for Pareto shape values ``k ≥ 0.7``, which are unreliable and misleadingly
     high, are set to `missing`. To avoid this, set `bad_shape_missing=false`.
-
 """
 ess_is
 
