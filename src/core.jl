@@ -12,13 +12,13 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `log_weights`: un-normalized Pareto-smoothed log weights
   - `weights`: normalized Pareto-smoothed weights (allocates a copy)
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
-  - `ess`: estimated effective sample size of estimate of mean using smoothed importance
-    samples
   - `nparams`: number of parameters in `log_weights`
   - `ndraws`: number of draws in `log_weights`
   - `nchains`: number of chains in `log_weights`
   - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
+  - `ess`: estimated effective sample size of estimate of mean using smoothed importance
+    samples (see [`ess_is`](@ref))
   - `log_weights_norm`: the logarithm of the normalization constant of `log_weights`
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
