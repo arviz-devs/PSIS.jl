@@ -17,7 +17,7 @@ Estimate ESS for Pareto-smoothed importance sampling.
 
 !!! note
     
-    ESS estimates for Pareto shape values ``k ≥ 0.7``, which are unreliable and misleadingly
+    ESS estimates for Pareto shape values ``k > 0.7``, which are unreliable and misleadingly
     high, are set to `missing`. To avoid this, set `bad_shape_missing=false`.
 """
 ess_is
@@ -34,7 +34,7 @@ function ess_is(weights; reff=1)
 end
 
 function _apply_missing(neff, dist; bad_shape_missing)
-    return bad_shape_missing && pareto_shape(dist) ≥ 0.7 ? missing : neff
+    return bad_shape_missing && pareto_shape(dist) > 0.7 ? missing : neff
 end
 _apply_missing(neff, ::Missing; kwargs...) = missing
 function _apply_missing(ess::AbstractVector, tail_dist::AbstractVector; kwargs...)
