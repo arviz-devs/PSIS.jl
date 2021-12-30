@@ -219,7 +219,7 @@ function psis!(
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
-    tail_inds = @view perm[2:M + 1]
+    tail_inds = @view perm[2:(M + 1)]
     logu = logw[cutoff_ind]
     logw_tail = @views logw[tail_inds]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
