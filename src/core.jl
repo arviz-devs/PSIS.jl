@@ -170,8 +170,6 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
 # Keywords
 
-  - `sorted=issorted(vec(log_ratios))`: whether `log_ratios` are already sorted. Only
-    accepted if `nparams==1`.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
@@ -207,7 +205,7 @@ end
 function psis!(
     logw::AbstractVector,
     reff=1;
-    sorted::Bool=issorted(logw),
+    sorted::Bool=false, # deprecated
     improved::Bool=false,
     warn::Bool=true,
 )
