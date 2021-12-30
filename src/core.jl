@@ -170,8 +170,6 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
 # Keywords
 
-  - `sorted=issorted(vec(log_ratios))`: whether `log_ratios` are already sorted. Only
-    accepted if `nparams==1`.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
@@ -207,7 +205,7 @@ end
 function psis!(
     logw::AbstractVector,
     reff=1;
-    sorted::Bool=issorted(logw),
+    sorted::Bool=false, # deprecated
     improved::Bool=false,
     warn::Bool=true,
 )
@@ -219,11 +217,11 @@ function psis!(
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
-    perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
-    icut = S - M
-    tail_range = (icut + 1):S
-    @inbounds logw_tail = @views logw[perm[tail_range]]
-    @inbounds logu = logw[perm[icut]]
+    perm = partialsortperm(logw, (S - M):S)
+    cutoff_ind = perm[1]
+    tail_inds = @view perm[2:(M + 1)]
+    logu = logw[cutoff_ind]
+    logw_tail = @views logw[tail_inds]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
