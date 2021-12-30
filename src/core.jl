@@ -217,11 +217,11 @@ function psis!(
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
-    perm = sorted ? collect(eachindex(logw)) : sortperm(logw)
-    icut = S - M
-    tail_range = (icut + 1):S
-    @inbounds logw_tail = @views logw[perm[tail_range]]
-    @inbounds logu = logw[perm[icut]]
+    perm = partialsortperm(logw, (S - M):S)
+    cutoff_ind = perm[1]
+    tail_inds = @view perm[2:M + 1]
+    logu = logw[cutoff_ind]
+    logw_tail = @views logw[tail_inds]
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
