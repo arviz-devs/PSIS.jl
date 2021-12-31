@@ -148,6 +148,17 @@ end
     end
 
     @testset "keywords" begin
+        @testset "$f smooth" for f in (psis, psis!)
+            x = randn(10, 100, 4)
+            xcopy = copy(x)
+            result = f(x; smooth=false)
+            @test x === result.log_weights
+            @test xcopy == x
+
+            result = f(x; smooth=true)
+            @test result.log_weights != xcopy
+        end
+
         @testset "sorted=true" begin
             x = randn(100)
             perm = sortperm(x)
