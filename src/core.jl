@@ -152,7 +152,8 @@ end
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
-While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in-place.
+While `psis` computes smoothed log weights out-of-place if `smooth=true`, `psis!` smooths
+them in-place.
 
 # Arguments
 
@@ -170,6 +171,8 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
 # Keywords
 
+  - `smooth=true`: If `true`, the log-weights are smoothed. If `false`, only diagnostics
+    are computed.
   - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
     If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
     [^VehtariSimpson2021].
@@ -195,16 +198,21 @@ details and [`paretoshapeplot`](@ref) for a diagnostic plot.
 """
 psis, psis!
 
-function psis(logr, reff=1; kwargs...)
-    T = float(eltype(logr))
-    logw = similar(logr, T)
-    copyto!(logw, logr)
-    return psis!(logw, reff; kwargs...)
+function psis(logr, reff=1; smooth::Bool=true, kwargs...)
+    if smooth
+        T = float(eltype(logr))
+        logw = similar(logr, T)
+        copyto!(logw, logr)
+    else
+        logw = logr
+    end
+    return psis!(logw, reff; smooth=smooth, kwargs...)
 end
 
 function psis!(
     logw::AbstractVector,
     reff=1;
+    smooth::Bool=true,
     sorted::Bool=false, # deprecated
     improved::Bool=false,
     warn::Bool=true,
@@ -222,7 +230,7 @@ function psis!(
     tail_inds = @view perm[2:(M + 1)]
     logu = logw[cutoff_ind]
     logw_tail = @views logw[tail_inds]
-    _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
+    _, tail_dist = psis_tail!(logw_tail, logu, M; smooth=smooth, improved=improved)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
@@ -283,20 +291,24 @@ end
 
 tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
 
-function psis_tail!(logw, logμ, M=length(logw), improved=false)
+function psis_tail!(logw, logμ, M=length(logw); improved::Bool=false, smooth::Bool=true)
     T = eltype(logw)
     logw_max = logw[M]
     # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
     # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
-    w = (logw .= exp.(logw .- logw_max))
+    if smooth
+        # if smoothing, we can reuse storage
+        logw .= exp.(logw .- logw_max)
+        w = logw
+    else
+        w = exp.(logw .- logw_max)
+    end
     tail_dist_scaled = StatsBase.fit(
         GeneralizedParetoKnownMu(μ_scaled), w; sorted=true, improved=improved
     )
     tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
-    # undo the scaling
-    ξ = Distributions.shape(tail_dist_adjusted)
-    if isfinite(ξ)
+    if smooth
         p = uniform_probabilities(T, M)
         @inbounds for i in eachindex(logw, p)
             # undo scaling in the log-weights
