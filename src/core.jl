@@ -182,7 +182,7 @@ them in-place.
 
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
-A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
+A warning is raised if the Pareto shape parameter ``k > 0.7``. See [`PSISResult`](@ref) for
 details and [`paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
