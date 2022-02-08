@@ -184,7 +184,3 @@ function prior_adjust_shape(d::Distributions.GeneralizedPareto, n, ξ_prior=1//2
     ξ = (n * d.ξ + nobs * ξ_prior) / (n + nobs)
     return Distributions.GeneralizedPareto(d.μ, d.σ, ξ)
 end
-
-function scale(d::Distributions.GeneralizedPareto, s)
-    return Distributions.GeneralizedPareto(d.μ * s, d.σ * s, d.ξ)
-end

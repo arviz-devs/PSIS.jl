@@ -30,7 +30,9 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `log_weights_norm`: the logarithm of the normalization constant of `log_weights`
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
-    `log_weights`
+    `log_weights`. Note that the tail weights are scaled to have a maximum of 1, so
+    `tail_dist * exp(maximum(log_ratios))` is the corresponding fit directly to the tail of
+    `log_ratios`.
 
 # Diagnostic
 
@@ -303,7 +305,5 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
             logw[i] = min(log(_quantile(tail_dist_adjusted, p[i])), 0) + logw_max
         end
     end
-    # undo scaling for the tail distribution
-    tail_dist = scale(tail_dist_adjusted, exp(logw_max))
-    return logw, tail_dist
+    return logw, tail_dist_adjusted
 end
