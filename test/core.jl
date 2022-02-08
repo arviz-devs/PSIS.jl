@@ -264,6 +264,11 @@ end
         end
     end
 
+    # https://github.com/arviz-devs/PSIS.jl/issues/27
+    @testset "no failure for very low log-weights" begin
+        psis(rand(1000) .- 1500)
+    end
+
     @testset "compatibility with arrays with named axes/dims" begin
         param_names = [Symbol("x[$i]") for i in 1:10]
         iter_names = 101:200
