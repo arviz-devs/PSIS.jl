@@ -168,9 +168,27 @@ end
         @test ismissing(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
-            "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
+            "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution.",
             msg,
         )
+
+        skipnan(x) = filter(!isnan, x)
+        io = IOBuffer()
+        for logr in [
+            [NaN; randn(100)],
+            [Inf; randn(100)],
+            fill(-Inf, 100),
+            vcat(ones(50), fill(-Inf, 435)),
+        ]
+            result = with_logger(SimpleLogger(io)) do
+                psis(logr)
+            end
+            @test skipnan(result.log_weights) == skipnan(logr)
+            @test ismissing(result.tail_dist)
+            @test ismissing(result.pareto_shape)
+            msg = String(take!(io))
+            @test occursin("Warning: Tail contains non-finite values.", msg)
+        end
 
         io = IOBuffer()
         rng = MersenneTwister(42)
@@ -232,7 +250,7 @@ end
             msg,
         )
         @test occursin(
-            "Warning: 1 parameters had insufficient tail draws to fit the generalized Pareto distribution. $(PSIS.MISSING_SHAPE_SUMMARY)",
+            "Warning: For 1 parameters, the generalized Pareto distribution could not be fit to the tail draws.",
             msg,
         )
     end
