@@ -223,6 +223,11 @@ function psis!(
     tail_inds = @view perm[2:(M + 1)]
     logu = logw[cutoff_ind]
     logw_tail = @views logw[tail_inds]
+    if !all(isfinite, logw_tail)
+        warn &&
+            @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
+        return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
+    end
     _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
