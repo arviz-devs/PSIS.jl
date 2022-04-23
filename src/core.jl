@@ -8,7 +8,6 @@ const SHAPE_DIAGNOSTIC_CATEGORIES = (
 )
 const BAD_SHAPE_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
 const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
-const MISSING_SHAPE_SUMMARY = "Total number of draws should in general exceed 25."
 
 """
     PSISResult
@@ -216,7 +215,7 @@ function psis!(
     M = tail_length(reff_val, S)
     if M < 5
         warn &&
-            @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
+            @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
     perm = partialsortperm(logw, (S - M):S)
@@ -278,7 +277,7 @@ function check_pareto_shape(
         @warn "$ngt1 parameters had Pareto shape values k > 1. $VERY_BAD_SHAPE_SUMMARY"
     end
     if nmissing > 0
-        @warn "$nmissing parameters had insufficient tail draws to fit the generalized Pareto distribution. $MISSING_SHAPE_SUMMARY"
+        @warn "For $nmissing parameters, the generalized Pareto distribution could not be fit to the tail draws. Total number of draws should in general exceed 25, and the tail draws must be finite."
     end
     return nothing
 end
