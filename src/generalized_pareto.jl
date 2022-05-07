@@ -18,6 +18,7 @@ Construct the generalized Pareto distribution (GPD) with location parameter ``μ
 parameter ``σ`` and shape parameter ``k``.
 
 !!! note
+    
     The shape parameter ``k`` is equivalent to the commonly used shape parameter ``ξ``.
     This is the same parameterization used by [^VehtariSimpson2021] and is related to that
     used by [^ZhangStephens2009] as ``k \\mapsto -k``.
