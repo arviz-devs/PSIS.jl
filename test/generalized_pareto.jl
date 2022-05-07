@@ -26,4 +26,12 @@ using Test
             @test dhat.k == -1
         end
     end
+    @testset "convert to Distributions type" begin
+        d = PSIS.GeneralizedPareto(1.0, 2.0, 3.0)
+        @test @inferred(convert(Distributions.GeneralizedPareto, d)) ===
+            Distributions.GeneralizedPareto(1.0, 2.0, 3.0)
+        d = PSIS.GeneralizedPareto(0.0, 0.0, -1.0)
+        @test @inferred(convert(Distributions.GeneralizedPareto{Float32}, d)) ===
+            Distributions.GeneralizedPareto{Float32}(0.0f0, 0.0f0, -1.0f0)
+    end
 end

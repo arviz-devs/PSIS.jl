@@ -25,6 +25,10 @@ function __init__()
         using .Makie
         include("recipes/makie.jl")
     end
+    Requires.@require Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f" begin
+        using .Distributions: Distributions
+        include("distributions.jl")
+    end
 end
 
 end
