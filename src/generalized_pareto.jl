@@ -34,39 +34,10 @@ end
 # MLE
 #
 
-"""
-    GeneralizedParetoKnownMuTheta(μ, θ)
-
-Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` and ``\\theta=\\frac{\\xi}{\\sigma}`` are known.
-"""
-struct GeneralizedParetoKnownMuTheta{T} <: Distributions.IncompleteDistribution
-    μ::T
-    θ::T
-end
-GeneralizedParetoKnownMuTheta(μ, θ) = GeneralizedParetoKnownMuTheta(Base.promote(μ, θ)...)
-
-struct GeneralizedParetoKnownMuThetaStats{T} <: Distributions.SufficientStats
-    μ::T  # known mean
-    θ::T  # known theta
-    ξ::T  # known shape
-end
-
-function Distributions.suffstats(d::GeneralizedParetoKnownMuTheta, x::AbstractArray)
-    μ = d.μ
-    θ = d.θ
-    ξ = Statistics.mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of ξ
-    return GeneralizedParetoKnownMuThetaStats(μ, θ, ξ)
-end
-
-function Distributions.fit_mle(g::GeneralizedParetoKnownMuTheta, x::AbstractArray)
-    ss = Distributions.suffstats(g, x)
-    return Distributions.fit_mle(g, ss)
-end
-function Distributions.fit_mle(
-    d::GeneralizedParetoKnownMuTheta, ss::GeneralizedParetoKnownMuThetaStats
-)
-    ξ = ss.ξ
-    return Distributions.GeneralizedPareto(d.μ, ξ / d.θ, ξ)
+function _fit_gpd_mle_given_mu_theta(x::AbstractArray, μ, θ)
+    k = Statistics.mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of k
+    σ = k / θ
+    return GeneralizedPareto(μ, σ, k)
 end
 
 #
