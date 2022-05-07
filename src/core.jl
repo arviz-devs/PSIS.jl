@@ -101,11 +101,11 @@ function pareto_shape_summary(r::PSISResult; kwargs...)
     return _print_pareto_shape_summary(stdout, r; kwargs...)
 end
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
-    ξ = as_array(pareto_shape(r))
+    k = as_array(pareto_shape(r))
     ess = as_array(ess_is(r))
     npoints = r.nparams
     rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
-        inds = findall(cond, ξ)
+        inds = findall(cond, k)
         count = length(inds)
         perc = 100 * count / npoints
         ess_min = if count == 0 || desc == "too few draws"
