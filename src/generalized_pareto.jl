@@ -23,11 +23,11 @@ struct GeneralizedPareto{T}
 end
 GeneralizedPareto(μ, σ, k) = GeneralizedPareto(Base.promote(μ, σ, k)...)
 
-function _quantile(d::Distributions.GeneralizedPareto{T}, p::Real) where {T<:Real}
-    (μ, σ, ξ) = Distributions.params(d)
+function quantile(d::GeneralizedPareto{T}, p::Real) where {T<:Real}
     nlog1pp = -log1p(-p * one(T))
-    z = abs(ξ) < eps() ? nlog1pp : expm1(ξ * nlog1pp) / ξ
-    return muladd(σ, z, μ)
+    k = d.k
+    z = abs(k) < eps() ? nlog1pp : expm1(k * nlog1pp) / k
+    return muladd(d.σ, z, d.μ)
 end
 
 #
