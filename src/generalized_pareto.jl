@@ -7,14 +7,20 @@
 
 The generalized Pareto distribution.
 
+This is equivalent to `Distributions.GeneralizedPareto` and can be converted to one with
+`convert(Distributions.GeneralizedPareto, d)`.
+
 # Constructor
 
     GeneralizedPareto(μ, σ, k)
 
 Construct the generalized Pareto distribution (GPD) with location parameter ``μ``, scale
-parameter ``σ`` and shape parameter ``k``. Note that this ``k`` is equal to the commonly
-used shape parameter ``ξ``. This is the same parameterization used by [^VehtariSimpson2021]
-and is related to that used by [^ZhangStephens2009] as ``k \\mapsto -k``.
+parameter ``σ`` and shape parameter ``k``.
+
+!!! note
+    The shape parameter ``k`` is equivalent to the commonly used shape parameter ``ξ``.
+    This is the same parameterization used by [^VehtariSimpson2021] and is related to that
+    used by [^ZhangStephens2009] as ``k \\mapsto -k``.
 """
 struct GeneralizedPareto{T}
     μ::T
