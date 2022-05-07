@@ -85,7 +85,7 @@ function fit_gpd_empiricalbayes(
     xmax = last(xsorted)
     if xmin ≈ xmax
         # support is nearly a point. solution is not unique; any solution satisfying the
-        # constraints σ/ξ ≈ 0 and ξ < 0 is acceptable. we choose the ξ = -1 solution, i.e.
+        # constraints σ/k ≈ 0 and k < 0 is acceptable. we choose the k = -1 solution, i.e.
         # the uniform distribution
         return GeneralizedPareto(μ, xmax - μ, -1)
     end
@@ -112,7 +112,7 @@ function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # quadrature points uniformly spaced on the quantiles of the θ prior
     npoints = min_points + floor(Int, sqrt(n))
     p = uniform_probabilities(T, npoints)
-    θ = map(Base.Fix1(_quantile, θ_prior), p)
+    θ = map(Base.Fix1(quantile, θ_prior), p)
 
     # estimate mean θ over the quadrature points
     # with weights as the normalized profile likelihood
@@ -132,8 +132,8 @@ function _gpd_empirical_prior(μ, xsorted, n=length(xsorted))
     μ_star = -inv(xmax - μ)
     x_25 = xsorted[max(fld(n + 2, 4), 1)]
     σ_star = inv(6 * (x_25 - μ))
-    ξ_star = 1//2
-    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
+    k_star = 1//2
+    return GeneralizedPareto(μ_star, σ_star, k_star)
 end
 
 # Zhang, 2010
@@ -151,18 +151,17 @@ function _gpd_empirical_prior_improved(μ, xsorted, n=length(xsorted))
     expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
     σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
     σ_star = inv(2 * Statistics.median(σp))
-    ξ_star = 1
-    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
+    k_star = 1
+    return GeneralizedPareto(μ_star, σ_star, k_star)
 end
 
-# compute log joint likelihood p(x|μ,θ), with ξ the MLE given θ and x
+# compute log joint likelihood p(x|μ,θ), with k the MLE given θ and x
 function _gpd_profile_loglikelihood(μ, θ, x, n=length(x))
-    g = GeneralizedParetoKnownMuTheta(μ, θ)
-    d = Distributions.fit_mle(g, x)
-    return -n * (log(d.σ) + d.ξ + 1)
+    d = _fit_gpd_mle_given_mu_theta(x, μ, θ)
+    return -n * (log(d.σ) + d.k + 1)
 end
 
-function prior_adjust_shape(d::Distributions.GeneralizedPareto, n, ξ_prior=1//2, nobs=10)
-    ξ = (n * d.ξ + nobs * ξ_prior) / (n + nobs)
-    return Distributions.GeneralizedPareto(d.μ, d.σ, ξ)
+function prior_adjust_shape(d::GeneralizedPareto, n, k_prior=1//2, nobs=10)
+    k = (n * d.k + nobs * k_prior) / (n + nobs)
+    return GeneralizedPareto(d.μ, d.σ, k)
 end
