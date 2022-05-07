@@ -101,11 +101,11 @@ function pareto_shape_summary(r::PSISResult; kwargs...)
     return _print_pareto_shape_summary(stdout, r; kwargs...)
 end
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
-    ξ = as_array(pareto_shape(r))
+    k = as_array(pareto_shape(r))
     ess = as_array(ess_is(r))
     npoints = r.nparams
     rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
-        inds = findall(cond, ξ)
+        inds = findall(cond, k)
         count = length(inds)
         perc = 100 * count / npoints
         ess_min = if count == 0 || desc == "too few draws"
@@ -142,9 +142,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
 end
 
 function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
-    return PSISResult{
-        T,W,N,R,L,D2
-    } where {D2<:Union{D,Missing,Distributions.GeneralizedPareto{T}}}
+    return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,GeneralizedPareto{T}}}
 end
 
 """
@@ -255,12 +253,12 @@ function psis!(logw::AbstractArray, reff=1; warn::Bool=true, kwargs...)
 end
 
 pareto_shape(::Missing) = missing
-pareto_shape(dist::Distributions.GeneralizedPareto) = Distributions.shape(dist)
+pareto_shape(dist::GeneralizedPareto) = dist.k
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
 pareto_shape(dists) = map(pareto_shape, dists)
 
 check_pareto_shape(result::PSISResult) = check_pareto_shape(result.tail_dist)
-function check_pareto_shape(dist::Distributions.GeneralizedPareto)
+function check_pareto_shape(dist::GeneralizedPareto)
     k = pareto_shape(dist)
     if k > 1
         @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_SHAPE_SUMMARY"
@@ -269,9 +267,7 @@ function check_pareto_shape(dist::Distributions.GeneralizedPareto)
     end
     return nothing
 end
-function check_pareto_shape(
-    dists::AbstractVector{<:Union{Missing,Distributions.GeneralizedPareto}}
-)
+function check_pareto_shape(dists::AbstractVector{<:Union{Missing,GeneralizedPareto}})
     nmissing = count(ismissing, dists)
     ngt07 = count(x -> !(ismissing(x)) && pareto_shape(x) > 0.7, dists)
     ngt1 = iszero(ngt07) ? ngt07 : count(x -> !(ismissing(x)) && pareto_shape(x) > 1, dists)
@@ -296,17 +292,15 @@ function psis_tail!(logw, logμ, M=length(logw), improved=false)
     # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
     w = (logw .= exp.(logw .- logw_max))
-    tail_dist_scaled = StatsBase.fit(
-        GeneralizedParetoKnownMu(μ_scaled), w; sorted=true, improved=improved
-    )
+    tail_dist_scaled = fit_gpd(w; sorted=true, improved=improved, μ=μ_scaled)
     tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
     # undo the scaling
-    ξ = Distributions.shape(tail_dist_adjusted)
-    if isfinite(ξ)
+    k = tail_dist_adjusted.k
+    if isfinite(k)
         p = uniform_probabilities(T, M)
         @inbounds for i in eachindex(logw, p)
             # undo scaling in the log-weights
-            logw[i] = min(log(_quantile(tail_dist_adjusted, p[i])), 0) + logw_max
+            logw[i] = min(log(quantile(tail_dist_adjusted, p[i])), 0) + logw_max
         end
     end
     return logw, tail_dist_adjusted

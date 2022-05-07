@@ -1,48 +1,50 @@
+# Note: These internal functions are here to avoid a dependency on Distributions.jl,
+# which currently does not implement GPD fitting anyways. They are not methods of
+# functions in Statistics/StatsBase
 
-function _quantile(d::Distributions.GeneralizedPareto{T}, p::Real) where {T<:Real}
-    (μ, σ, ξ) = Distributions.params(d)
+"""
+    GeneralizedPareto{T<:Real}
+
+The generalized Pareto distribution.
+
+This is equivalent to `Distributions.GeneralizedPareto` and can be converted to one with
+`convert(Distributions.GeneralizedPareto, d)`.
+
+# Constructor
+
+    GeneralizedPareto(μ, σ, k)
+
+Construct the generalized Pareto distribution (GPD) with location parameter ``μ``, scale
+parameter ``σ`` and shape parameter ``k``.
+
+!!! note
+    
+    The shape parameter ``k`` is equivalent to the commonly used shape parameter ``ξ``.
+    This is the same parameterization used by [^VehtariSimpson2021] and is related to that
+    used by [^ZhangStephens2009] as ``k \\mapsto -k``.
+"""
+struct GeneralizedPareto{T}
+    μ::T
+    σ::T
+    k::T
+end
+GeneralizedPareto(μ, σ, k) = GeneralizedPareto(Base.promote(μ, σ, k)...)
+
+function quantile(d::GeneralizedPareto{T}, p::Real) where {T<:Real}
     nlog1pp = -log1p(-p * one(T))
-    z = abs(ξ) < eps() ? nlog1pp : expm1(ξ * nlog1pp) / ξ
-    return muladd(σ, z, μ)
+    k = d.k
+    z = abs(k) < eps() ? nlog1pp : expm1(k * nlog1pp) / k
+    return muladd(d.σ, z, d.μ)
 end
 
 #
 # MLE
 #
 
-"""
-    GeneralizedParetoKnownMuTheta(μ, θ)
-
-Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` and ``\\theta=\\frac{\\xi}{\\sigma}`` are known.
-"""
-struct GeneralizedParetoKnownMuTheta{T} <: Distributions.IncompleteDistribution
-    μ::T
-    θ::T
-end
-GeneralizedParetoKnownMuTheta(μ, θ) = GeneralizedParetoKnownMuTheta(Base.promote(μ, θ)...)
-
-struct GeneralizedParetoKnownMuThetaStats{T} <: Distributions.SufficientStats
-    μ::T  # known mean
-    θ::T  # known theta
-    ξ::T  # known shape
-end
-
-function Distributions.suffstats(d::GeneralizedParetoKnownMuTheta, x::AbstractArray)
-    μ = d.μ
-    θ = d.θ
-    ξ = Statistics.mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of ξ
-    return GeneralizedParetoKnownMuThetaStats(μ, θ, ξ)
-end
-
-function Distributions.fit_mle(g::GeneralizedParetoKnownMuTheta, x::AbstractArray)
-    ss = Distributions.suffstats(g, x)
-    return Distributions.fit_mle(g, ss)
-end
-function Distributions.fit_mle(
-    d::GeneralizedParetoKnownMuTheta, ss::GeneralizedParetoKnownMuThetaStats
-)
-    ξ = ss.ξ
-    return Distributions.GeneralizedPareto(d.μ, ξ / d.θ, ξ)
+function _fit_gpd_mle_given_mu_theta(x::AbstractArray, μ, θ)
+    k = Statistics.mean(xi -> log1p(θ * (xi - μ)), x) # mle estimate of k
+    σ = k / θ
+    return GeneralizedPareto(μ, σ, k)
 end
 
 #
@@ -50,18 +52,9 @@ end
 #
 
 """
-    GeneralizedParetoKnownMu(μ)
+    fit_gpd(x; μ=0, kwargs...)
 
-Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` is known.
-"""
-struct GeneralizedParetoKnownMu{T} <: Distributions.IncompleteDistribution
-    μ::T
-end
-
-"""
-    fit(g::GeneralizedParetoKnownMu, x; kwargs...)
-
-Fit a [`GeneralizedPareto`](@ref) with known location `μ` to the data `x`.
+Fit a [`GeneralizedPareto`](@ref) with location `μ` to the data `x`.
 
 The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Zhang2010].
 
@@ -82,35 +75,31 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Z
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function StatsBase.fit(g::GeneralizedParetoKnownMu, x::AbstractArray; kwargs...)
-    return fit_empiricalbayes(g, x; kwargs...)
-end
+fit_gpd(x::AbstractArray; kwargs...) = fit_gpd_empiricalbayes(x; kwargs...)
 
-# Note: our ξ is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
+# Note: our k is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
-function fit_empiricalbayes(
-    g::GeneralizedParetoKnownMu,
+function fit_gpd_empiricalbayes(
     x::AbstractArray;
+    μ=zero(eltype(x)),
     sorted::Bool=issorted(vec(x)),
     improved::Bool=true,
     min_points::Int=30,
 )
-    μ = g.μ
     # fitting is faster when the data are sorted
     xsorted = sorted ? vec(x) : sort(vec(x))
     xmin = first(xsorted)
     xmax = last(xsorted)
     if xmin ≈ xmax
         # support is nearly a point. solution is not unique; any solution satisfying the
-        # constraints σ/ξ ≈ 0 and ξ < 0 is acceptable. we choose the ξ = -1 solution, i.e.
+        # constraints σ/k ≈ 0 and k < 0 is acceptable. we choose the k = -1 solution, i.e.
         # the uniform distribution
-        σ = xmax - μ
-        return Distributions.GeneralizedPareto(μ, max(eps(zero(σ)), σ), -1)
+        return GeneralizedPareto(μ, xmax - μ, -1)
     end
     # estimate θ using empirical bayes
     θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # estimate remaining parameters using MLE
-    return Distributions.fit_mle(GeneralizedParetoKnownMuTheta(μ, θ_hat), xsorted)
+    return _fit_gpd_mle_given_mu_theta(xsorted, μ, θ_hat)
 end
 
 # estimate θ̂ = ∫θp(θ|x,μ)dθ, i.e. the posterior mean using quadrature over grid
@@ -130,7 +119,7 @@ function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # quadrature points uniformly spaced on the quantiles of the θ prior
     npoints = min_points + floor(Int, sqrt(n))
     p = uniform_probabilities(T, npoints)
-    θ = map(Base.Fix1(_quantile, θ_prior), p)
+    θ = map(Base.Fix1(quantile, θ_prior), p)
 
     # estimate mean θ over the quadrature points
     # with weights as the normalized profile likelihood
@@ -150,8 +139,8 @@ function _gpd_empirical_prior(μ, xsorted, n=length(xsorted))
     μ_star = -inv(xmax - μ)
     x_25 = xsorted[max(fld(n + 2, 4), 1)]
     σ_star = inv(6 * (x_25 - μ))
-    ξ_star = 1//2
-    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
+    k_star = 1//2
+    return GeneralizedPareto(μ_star, σ_star, k_star)
 end
 
 # Zhang, 2010
@@ -169,18 +158,17 @@ function _gpd_empirical_prior_improved(μ, xsorted, n=length(xsorted))
     expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
     σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
     σ_star = inv(2 * Statistics.median(σp))
-    ξ_star = 1
-    return Distributions.GeneralizedPareto(μ_star, σ_star, ξ_star)
+    k_star = 1
+    return GeneralizedPareto(μ_star, σ_star, k_star)
 end
 
-# compute log joint likelihood p(x|μ,θ), with ξ the MLE given θ and x
+# compute log joint likelihood p(x|μ,θ), with k the MLE given θ and x
 function _gpd_profile_loglikelihood(μ, θ, x, n=length(x))
-    g = GeneralizedParetoKnownMuTheta(μ, θ)
-    d = Distributions.fit_mle(g, x)
-    return -n * (log(d.σ) + d.ξ + 1)
+    d = _fit_gpd_mle_given_mu_theta(x, μ, θ)
+    return -n * (log(d.σ) + d.k + 1)
 end
 
-function prior_adjust_shape(d::Distributions.GeneralizedPareto, n, ξ_prior=1//2, nobs=10)
-    ξ = (n * d.ξ + nobs * ξ_prior) / (n + nobs)
-    return Distributions.GeneralizedPareto(d.μ, d.σ, ξ)
+function prior_adjust_shape(d::GeneralizedPareto, n, k_prior=1//2, nobs=10)
+    k = (n * d.k + nobs * k_prior) / (n + nobs)
+    return GeneralizedPareto(d.μ, d.σ, k)
 end
