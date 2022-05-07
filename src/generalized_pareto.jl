@@ -1,3 +1,26 @@
+# Note: These internal functions are here to avoid a dependency on Distributions.jl,
+# which currently does not implement GPD fitting anyways. They are not methods of
+# functions in Statistics/StatsBase
+
+"""
+    GeneralizedPareto{T<:Real}
+
+The (zero-centered) generalized Pareto distribution.
+
+# Constructor
+
+    GeneralizedPareto(σ, k)
+
+Construct the generalized Pareto distribution (GPD) with scale parameter ``σ`` and shape
+parameter ``k``. Note that this ``k`` is equal to the commonly used shape parameter ``ξ``.
+This is the same parameterization used by [^VehtariSimpson2021] and is related to that used
+by [^ZhangStephens2009] as ``k \\mapsto -k``.
+"""
+struct GeneralizedPareto{T}
+    σ::T
+    k::T
+end
+GeneralizedPareto(σ, k) = GeneralizedPareto(Base.promote(σ, k)...)
 
 function _quantile(d::Distributions.GeneralizedPareto{T}, p::Real) where {T<:Real}
     (μ, σ, ξ) = Distributions.params(d)
