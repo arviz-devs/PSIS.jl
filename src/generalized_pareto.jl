@@ -45,18 +45,9 @@ end
 #
 
 """
-    GeneralizedParetoKnownMu(μ)
+    fit_gpd(x; μ=0, kwargs...)
 
-Represents a [`GeneralizedPareto`](@ref) where ``\\mu`` is known.
-"""
-struct GeneralizedParetoKnownMu{T} <: Distributions.IncompleteDistribution
-    μ::T
-end
-
-"""
-    fit(g::GeneralizedParetoKnownMu, x; kwargs...)
-
-Fit a [`GeneralizedPareto`](@ref) with known location `μ` to the data `x`.
+Fit a [`GeneralizedPareto`](@ref) with location `μ` to the data `x`.
 
 The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Zhang2010].
 
@@ -77,9 +68,7 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Z
     Technometrics, 52:3, 335-339,
     DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
-function StatsBase.fit(g::GeneralizedParetoKnownMu, x::AbstractArray; kwargs...)
-    return fit_empiricalbayes(g, x; kwargs...)
-end
+fit_gpd(x::AbstractArray; kwargs...) = fit_gpd_empiricalbayes(x; kwargs...)
 
 # Note: our ξ is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
