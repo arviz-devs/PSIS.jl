@@ -70,16 +70,15 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Z
 """
 fit_gpd(x::AbstractArray; kwargs...) = fit_gpd_empiricalbayes(x; kwargs...)
 
-# Note: our ξ is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
+# Note: our k is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
-function fit_empiricalbayes(
-    g::GeneralizedParetoKnownMu,
+function fit_gpd_empiricalbayes(
     x::AbstractArray;
+    μ=zero(eltype(x)),
     sorted::Bool=issorted(vec(x)),
     improved::Bool=true,
     min_points::Int=30,
 )
-    μ = g.μ
     # fitting is faster when the data are sorted
     xsorted = sorted ? vec(x) : sort(vec(x))
     xmin = first(xsorted)
@@ -88,13 +87,12 @@ function fit_empiricalbayes(
         # support is nearly a point. solution is not unique; any solution satisfying the
         # constraints σ/ξ ≈ 0 and ξ < 0 is acceptable. we choose the ξ = -1 solution, i.e.
         # the uniform distribution
-        σ = xmax - μ
-        return Distributions.GeneralizedPareto(μ, max(eps(zero(σ)), σ), -1)
+        return GeneralizedPareto(μ, xmax - μ, -1)
     end
     # estimate θ using empirical bayes
     θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
     # estimate remaining parameters using MLE
-    return Distributions.fit_mle(GeneralizedParetoKnownMuTheta(μ, θ_hat), xsorted)
+    return _fit_gpd_mle_given_mu_theta(xsorted, μ, θ_hat)
 end
 
 # estimate θ̂ = ∫θp(θ|x,μ)dθ, i.e. the posterior mean using quadrature over grid
