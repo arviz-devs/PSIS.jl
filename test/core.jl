@@ -2,8 +2,7 @@ using PSIS
 using Test
 using Random
 using ReferenceTests
-using Distributions:
-    GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf, mean, shape
+using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf
 using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
 using AxisArrays: AxisArrays
@@ -14,7 +13,7 @@ using AxisArrays: AxisArrays
         log_weights_norm = logsumexp(log_weights)
         tail_length = 100
         reff = 2.0
-        tail_dist = GeneralizedPareto(1.0, 1.0, 0.5)
+        tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
         result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test sort(propertynames(result)) == [
@@ -56,9 +55,9 @@ using AxisArrays: AxisArrays
         tail_length = [1600, 1601, 1602]
         reff = [0.8, 0.9, 1.1]
         tail_dist = [
-            GeneralizedPareto(1.0, 1.0, 0.5),
-            GeneralizedPareto(1.0, 1.0, 0.6),
-            GeneralizedPareto(1.0, 1.0, 0.7),
+            PSIS.GeneralizedPareto(1.0, 1.0, 0.5),
+            PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
+            PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
         ]
         result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
@@ -99,16 +98,16 @@ end
         target = Exponential(1)
         x_target = 1  # 𝔼[x] with x ~ Exponential(1)
         x²_target = 2  # 𝔼[x²] with x ~ Exponential(1)
-        # For θ < 1, the closed-form distribution of importance ratios with ξ = 1 - θ is
-        # GeneralizedPareto(θ, θ * ξ, ξ), and the closed-form distribution of tail ratios is
-        # GeneralizedPareto(5^ξ * θ, θ * ξ, ξ).
+        # For θ < 1, the closed-form distribution of importance ratios with k = 1 - θ is
+        # GeneralizedPareto(θ, θ * k, k), and the closed-form distribution of tail ratios is
+        # GeneralizedPareto(5^k * θ, θ * k, k).
         # For θ < 0.5, the tail distribution has no variance, and estimates with importance
         # weights become unstable
         @testset "Exponential($θ) → Exponential(1)" for (θ, atol) in [
             (0.8, 0.05), (0.55, 0.2), (0.3, 0.7)
         ]
             proposal = Exponential(θ)
-            ξ_exp = 1 - θ
+            k_exp = 1 - θ
             for sz in ((100_000,), (5, 100_000), (5, 100_000, 4))
                 dims = length(sz) == 1 ? Colon() : 2:length(sz)
                 rng = MersenneTwister(42)
@@ -126,19 +125,19 @@ end
                     @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
                 end
 
-                ξ = r.pareto_shape
-                @test ξ isa (length(sz) == 1 ? Number : AbstractVector)
+                k = r.pareto_shape
+                @test k isa (length(sz) == 1 ? Number : AbstractVector)
                 tail_dist = r.tail_dist
                 if length(sz) == 1
-                    @test tail_dist isa GeneralizedPareto
-                    @test shape(tail_dist) == ξ
+                    @test tail_dist isa PSIS.GeneralizedPareto
+                    @test tail_dist.k == k
                 else
-                    @test tail_dist isa Vector{<:GeneralizedPareto}
-                    @test map(shape, tail_dist) == ξ
+                    @test tail_dist isa Vector{<:PSIS.GeneralizedPareto}
+                    @test map(d -> d.k, tail_dist) == k
                 end
 
                 w = r.weights
-                @test all(x -> isapprox(x, ξ_exp; atol=0.15), ξ)
+                @test all(x -> isapprox(x, k_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(
                     x -> isapprox(x, x²_target; atol=atol), sum(x .^ 2 .* w; dims=dims)
@@ -207,7 +206,7 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 1.1))
+            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 1.1))
         end
         msg = String(take!(io))
         @test occursin(
@@ -216,7 +215,7 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 0.8))
+            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.8))
         end
         msg = String(take!(io))
         @test occursin(
@@ -225,16 +224,16 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(GeneralizedPareto(0.0, 1.0, 0.69))
+            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.69))
         end
         msg = String(take!(io))
         @test isempty(msg)
 
         tail_dist = [
             missing,
-            GeneralizedPareto(0, 1, 0.69),
-            GeneralizedPareto(0, 1, 0.71),
-            GeneralizedPareto(0, 1, 1.1),
+            PSIS.GeneralizedPareto(0, 1, 0.69),
+            PSIS.GeneralizedPareto(0, 1, 0.71),
+            PSIS.GeneralizedPareto(0, 1, 1.1),
         ]
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
