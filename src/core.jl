@@ -118,10 +118,11 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     end
     rows = filter(r -> r.count_perc[1] > 0, rows)
     formats = Dict(
-        "good" => (; color=:normal),
+        "good" => (),
         "okay" => (; color=:yellow),
         "bad" => (bold=true, color=:light_red),
         "very bad" => (bold=true, color=:red),
+        "missing" => ()
     )
 
     col_padding = " "
@@ -156,7 +157,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         format = formats[r.desc]
         printstyled(io, _pad_left(count, col_widths[3]); format...)
         printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
-        print(io, col_delim_tot, r.ess_min === missing ? "--" : floor(Int, r.ess_min))
+        print(io, col_delim_tot, r.ess_min === missing ? "——" : floor(Int, r.ess_min))
     end
     return nothing
 end
