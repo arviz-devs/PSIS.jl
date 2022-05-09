@@ -100,6 +100,7 @@ end
 function pareto_shape_summary(r::PSISResult; kwargs...)
     return _print_pareto_shape_summary(stdout, r; kwargs...)
 end
+
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_shape(r))
     ess = as_array(ess_is(r))
@@ -115,31 +116,54 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         end
         return (range=range, desc=desc, count_perc=(count, perc), ess_min=ess_min)
     end
-
-    return PrettyTables.pretty_table(
-        io,
-        collect(rows);
-        title="Pareto shape (k) diagnostic values:",
-        title_crayon=PrettyTables.crayon"",
-        header=["", "", "Count", "Min. ESS"],
-        alignment=[:r, :l, :l, :l],
-        alignment_anchor_regex=Dict(3 => [r" \("]),
-        filters_row=((data, i) -> data[i].count_perc[1] > 0,),
-        formatters=(
-            (data, i, j) -> j == 3 ? "$(data[1]) ($(round(data[2]; digits=1))%)" : data,
-            (data, i, j) -> j == 4 ? (ismissing(data) ? "——" : floor(Int, data)) : data,
-        ),
-        highlighters=(
-            PrettyTables.hl_cell([(2, 3)], PrettyTables.crayon"yellow"),
-            PrettyTables.hl_cell([(3, 3)], PrettyTables.crayon"light_red bold"),
-            PrettyTables.hl_cell([(4, 3)], PrettyTables.crayon"red bold"),
-        ),
-        crop=:horizontal,
-        hlines=:none,
-        vlines=:none,
-        kwargs...,
+    rows = filter(r -> r.count_perc[1] > 0, rows)
+    formats = Dict(
+        "good" => (),
+        "okay" => (; color=:yellow),
+        "bad" => (bold=true, color=:light_red),
+        "very bad" => (bold=true, color=:red),
+        "missing" => (),
     )
+
+    col_padding = " "
+    col_delim = ""
+    col_delim_tot = col_padding * col_delim * col_padding
+    col_widths = [
+        maximum(r -> length(r.range), rows),
+        maximum(r -> length(r.desc), rows),
+        maximum(r -> ndigits(r.count_perc[1]), rows),
+        floor(Int, log10(maximum(r -> r.count_perc[2], rows))) + 6,
+    ]
+
+    println(io, "Pareto shape (k) diagnostic values:")
+    printstyled(
+        io,
+        col_padding,
+        " "^col_widths[1],
+        col_delim_tot,
+        " "^col_widths[2],
+        col_delim_tot,
+        _pad_right("Count", col_widths[3] + col_widths[4] + 1),
+        col_delim_tot,
+        "Min. ESS";
+        bold=true,
+    )
+    for r in rows
+        count, perc = r.count_perc
+        perc_str = "($(round(perc; digits=1))%)"
+        println(io)
+        print(io, col_padding, _pad_left(r.range, col_widths[1]), col_delim_tot)
+        print(io, _pad_right(r.desc, col_widths[2]), col_delim_tot)
+        format = formats[r.desc]
+        printstyled(io, _pad_left(count, col_widths[3]); format...)
+        printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
+        print(io, col_delim_tot, r.ess_min === missing ? "——" : floor(Int, r.ess_min))
+    end
+    return nothing
 end
+
+_pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
+_pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
     return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,GeneralizedPareto{T}}}
