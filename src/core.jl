@@ -122,7 +122,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         "okay" => (; color=:yellow),
         "bad" => (bold=true, color=:light_red),
         "very bad" => (bold=true, color=:red),
-        "missing" => ()
+        "missing" => (),
     )
 
     col_padding = " "
