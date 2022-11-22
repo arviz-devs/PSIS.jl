@@ -1,21 +1,12 @@
 # Plots.jl recipes
+module PSISPlots
 
-# plot config object, used for dispatch
-mutable struct ParetoShapePlotConfig
-    args
-end
-function _paretoshapeplot(::Val{:Plots}, args...; kw...)
-    return RecipesBase.plot(ParetoShapePlotConfig(args); kw...)
-end
-function _paretoshapeplot!(::Val{:Plots}, args...; kw...)
-    return RecipesBase.plot!(ParetoShapePlotConfig(args); kw...)
-end
-function paretoshapeplot!(plt::RecipesBase.AbstractPlot, args...; kw...)
-    return RecipesBase.plot!(plt, ParetoShapePlotConfig(args); kw...)
-end
+using ..PSIS
+using RecipesBase: RecipesBase
 
-# pre-process to make PSISResult if necessary
-RecipesBase.@recipe function f(config::ParetoShapePlotConfig; showlines=false)
+RecipesBase.@userplot ParetoShapePlot
+
+RecipesBase.@recipe function f(plt::ParetoShapePlot; showlines=false)
     showlines && RecipesBase.@series begin
         seriestype := :hline
         primary := false
@@ -24,20 +15,22 @@ RecipesBase.@recipe function f(config::ParetoShapePlotConfig; showlines=false)
         linecolor --> :grey
         y := [0 0.5 0.7 1]
     end
-    xlabel --> "Parameter index"
+    title --> ""  # no title unless specified by the user
     ylabel --> "Pareto shape"
     seriestype --> :scatter
-    arg = first(config.args)
-    k = as_array(missing_to_nan(arg isa PSISResult ? pareto_shape(arg) : arg))
-    return (k,)
+    arg = first(plt.args)
+    k = arg isa PSIS.PSISResult ? PSIS.pareto_shape(arg) : arg
+    return (PSIS.as_array(PSIS.missing_to_nan(k)),)
 end
 
 # plot PSISResult using paretoshapeplot if seriestype not specified
 RecipesBase.@recipe function f(result::PSISResult)
     if haskey(plotattributes, :seriestype)
-        k = as_array(missing_to_nan(pareto_shape(result)))
+        k = PSIS.as_array(PSIS.missing_to_nan(PSIS.pareto_shape(result)))
         return (k,)
     else
-        return ParetoShapePlotConfig((result,))
+        return ParetoShapePlot((result,))
     end
 end
+
+end # module PSISPlots
