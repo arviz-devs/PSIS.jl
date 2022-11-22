@@ -1,6 +1,5 @@
 [deps]
 AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
@@ -12,7 +11,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 AxisArrays = "0.4"
-CairoMakie = "0.5"
 JLD2 = "0.4"
 Plots = "1"
 ReferenceTests = "0.9"
