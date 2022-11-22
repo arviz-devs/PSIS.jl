@@ -61,7 +61,7 @@ RecipesBase.@recipe function f(plt::ParetoShapePlot; showlines=false)
         y := [0 0.5 0.7 1]
     end
     title --> ""  # no title unless specified by the user
-    ylabel --> "Pareto shape"
+    yguide --> "Pareto shape"
     seriestype --> :scatter
     arg = first(plt.args)
     k = arg isa PSIS.PSISResult ? PSIS.pareto_shape(arg) : arg
