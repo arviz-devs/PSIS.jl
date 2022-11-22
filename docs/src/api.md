@@ -1,8 +1,16 @@
 # API
 
+## Core functionality
+
 ```@docs
 PSISResult
 psis
-paretoshapeplot
 ess_is
+```
+
+## Plotting
+
+```@docs
+PSISPlots
+PSISPlots.paretoshapeplot
 ```
