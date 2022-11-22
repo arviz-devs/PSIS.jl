@@ -2,10 +2,10 @@ using PSIS
 using Plots
 using Test
 
-@testset "Plots.jl recipes" begin
-    PSIS.plotting_backend!(:Plots)
+@testset "PSISPlots" begin
+    @testset "$f" for f in (PSISPlots.paretoshapeplot, PSISPlots.paretoshapeplot!),
+        sz in (100, (10, 100))
 
-    @testset "$f" for f in (paretoshapeplot, paretoshapeplot!), sz in (100, (10, 100))
         result = psis(randn(sz...))
 
         @testset for values in (result, result.pareto_shape)
@@ -16,7 +16,6 @@ using Test
             @test plt[1][1][:x] == Base.OneTo(result.nparams)
             @test plt[1][1][:y] == PSIS.as_array(result.pareto_shape)
             @test plt[1][1][:seriestype] == :scatter
-            @test plt[1][:xaxis][:guide] == "Parameter index"
             @test plt[1][:yaxis][:guide] == "Pareto shape"
         end
 
@@ -38,7 +37,7 @@ using Test
     @testset "plot(::PSISResult)" begin
         result = psis(randn(10, 100))
         for showlines in (true, false)
-            plt = paretoshapeplot(result; showlines=showlines)
+            plt = PSISPlots.paretoshapeplot(result; showlines=showlines)
             plt2 = plot(result; showlines=showlines)
             @test length(plt.series_list) == length(plt2.series_list)
             for (s1, s2) in zip(plt.series_list, plt2.series_list)
