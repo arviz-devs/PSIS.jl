@@ -2,7 +2,6 @@ module PSIS
 
 using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
-using RecipesBase: RecipesBase
 using Requires: Requires
 using Statistics: Statistics
 
