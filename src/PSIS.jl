@@ -4,6 +4,7 @@ using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
 using Statistics: Statistics
 
+export PSISPlots
 export PSISResult
 export psis, psis!, ess_is
 
