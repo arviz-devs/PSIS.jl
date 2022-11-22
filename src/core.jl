@@ -52,7 +52,7 @@ be used to diagnose reliability and convergence of estimates using the importanc
     exists. The convergence rate is close to zero, and bias can be large with practical
     sample sizes.
 
-See [`paretoshapeplot`](@ref) for a diagnostic plot.
+See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
@@ -203,7 +203,7 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
 A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
-details and [`paretoshapeplot`](@ref) for a diagnostic plot.
+details and [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
