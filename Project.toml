@@ -1,7 +1,7 @@
 name = "PSIS"
 uuid = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
 authors = ["Seth Axen <seth.axen@gmail.com> and contributors"]
-version = "0.5.1"
+version = "0.6.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
