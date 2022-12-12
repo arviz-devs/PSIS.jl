@@ -72,16 +72,18 @@ end
 
 function Base.getproperty(r::PSISResult, k::Symbol)
     if k === :weights
-        return exp.(getfield(r, :log_weights) .- getfield(r, :log_weights_norm))
+        log_weights = getfield(r, :log_weights)
+        log_weights_norm = getfield(r, :log_weights_norm)
+        return broadcast_last_dims(exp ∘ -, log_weights, log_weights_norm)
     elseif k === :nparams
         log_weights = getfield(r, :log_weights)
-        return ndims(log_weights) == 1 ? 1 : size(log_weights, 1)
+        return ndims(log_weights) == 1 ? 1 : size(log_weights, param_dim(log_weights))
     elseif k === :ndraws
         log_weights = getfield(r, :log_weights)
-        return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 2)
+        return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 1)
     elseif k === :nchains
         log_weights = getfield(r, :log_weights)
-        return size(log_weights, 3)
+        return ndims(log_weights) == 3 ? size(log_weights, 2) : 1
     end
     k === :pareto_shape && return pareto_shape(r)
     k === :ess && return ess_is(r)
@@ -181,10 +183,10 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
   - `log_ratios`: an array of logarithms of importance ratios, with one of the following
     sizes:
-    
+
       + `(ndraws,)`: a vector of draws for a single parameter from a single chain
-      + `(nparams, ndraws)`: a matrix of draws for a multiple parameter from a single chain
-      + `(nparams, ndraws, nchains)`: an array of draws for multiple parameters from
+      + `(ndraws, nparams)`: a matrix of draws for a multiple parameter from a single chain
+      + `(ndraws, nchains, nparams)`: an array of draws for multiple parameters from
         multiple chains, e.g. as might be generated with Markov chain Monte Carlo.
 
   - `reff::Union{Real,AbstractVector}`: the ratio(s) of effective sample size of
