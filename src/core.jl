@@ -183,7 +183,7 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
   - `log_ratios`: an array of logarithms of importance ratios, with one of the following
     sizes:
-
+    
       + `(ndraws,)`: a vector of draws for a single parameter from a single chain
       + `(ndraws, nparams)`: a matrix of draws for a multiple parameter from a single chain
       + `(ndraws, nchains, nparams)`: an array of draws for multiple parameters from
