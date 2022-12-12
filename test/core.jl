@@ -42,7 +42,7 @@ using AxisArrays: AxisArrays
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
-                PSISResult with 1 parameters, 500 draws, and 1 chains
+                PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto shape (k) diagnostic values:
                                     Count       Min. ESS
                  (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, result.ess))"""
@@ -50,8 +50,8 @@ using AxisArrays: AxisArrays
     end
 
     @testset "array log-weights" begin
-        log_weights = randn(3, 500, 4)
-        log_weights_norm = dropdims(logsumexp(log_weights; dims=(2, 3)); dims=(2, 3))
+        log_weights = randn(500, 4, 3)
+        log_weights_norm = dropdims(logsumexp(log_weights; dims=(1, 2)); dims=(1, 2))
         tail_length = [1600, 1601, 1602]
         reff = [0.8, 0.9, 1.1]
         tail_dist = [
@@ -63,7 +63,7 @@ using AxisArrays: AxisArrays
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.log_weights_norm == log_weights_norm
-        @test result.weights ≈ softmax(log_weights; dims=(2, 3))
+        @test result.weights ≈ softmax(log_weights; dims=(1, 2))
         @test result.reff == reff
         @test result.nparams == 3
         @test result.ndraws == 500
@@ -76,18 +76,18 @@ using AxisArrays: AxisArrays
             proposal = Normal()
             target = TDist(7)
             rng = MersenneTwister(42)
-            x = rand(rng, proposal, 30, 100)
+            x = rand(rng, proposal, 100, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
             reff = [100; ones(29)]
             result = psis(log_ratios, reff)
             @test sprint(show, "text/plain", result) == """
-                PSISResult with 30 parameters, 100 draws, and 1 chains
+                PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto shape (k) diagnostic values:
                                         Count       Min. ESS
-                 (-Inf, 0.5]  good       1 (3.3%)   95
-                  (0.5, 0.7]  okay       3 (10.0%)  97
-                    (0.7, 1]  bad        5 (16.7%)  ——
-                    (1, Inf)  very bad  20 (66.7%)  ——
+                 (-Inf, 0.5]  good       4 (13.3%)  95
+                  (0.5, 0.7]  okay       2 (6.7%)   97
+                    (0.7, 1]  bad        4 (13.3%)  ——
+                    (1, Inf)  very bad  19 (63.3%)  ——
                           ——  missing    1 (3.3%)   ——"""
         end
     end
@@ -108,8 +108,8 @@ end
         ]
             proposal = Exponential(θ)
             k_exp = 1 - θ
-            for sz in ((100_000,), (5, 100_000), (5, 100_000, 4))
-                dims = length(sz) == 1 ? Colon() : 2:length(sz)
+            for sz in ((100_000,), (100_000, 5), (100_000, 4, 5))
+                dims = length(sz) == 1 ? Colon() : 1:(length(sz) - 1)
                 rng = MersenneTwister(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
@@ -261,6 +261,7 @@ end
         sz = (5, 1_000, 4)
         x = rand(rng, proposal, sz)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
+        logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2), improved in (true, false)
             r_effs = fill(r_eff, sz[1])
             result = psis(logr, r_effs; improved=improved)
@@ -275,8 +276,11 @@ end
                 Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
                 by =
                     (ref, x) ->
-                        isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
-                            isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
+                        isapprox(
+                            permutedims(ref["log_weights"], (2, 3, 1)),
+                            x["log_weights"];
+                            rtol=1e-6,
+                        ) && isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
             )
         end
     end
@@ -290,14 +294,14 @@ end
         param_names = [Symbol("x[$i]") for i in 1:10]
         iter_names = 101:200
         chain_names = 1:4
-        x = randn(length(param_names), length(iter_names), length(chain_names))
+        x = randn(length(iter_names), length(chain_names), length(param_names))
 
         @testset "AxisArrays" begin
             logr = AxisArrays.AxisArray(
                 x,
-                AxisArrays.Axis{:param}(param_names),
                 AxisArrays.Axis{:iter}(iter_names),
                 AxisArrays.Axis{:chain}(chain_names),
+                AxisArrays.Axis{:param}(param_names),
             )
             result = psis(logr)
             @test result.log_weights isa AxisArrays.AxisArray
@@ -305,7 +309,7 @@ end
             for k in (:pareto_shape, :tail_length, :tail_dist, :reff, :log_weights_norm)
                 prop = getproperty(result, k)
                 @test prop isa AxisArrays.AxisArray
-                @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 1),)
+                @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 3),)
             end
         end
     end

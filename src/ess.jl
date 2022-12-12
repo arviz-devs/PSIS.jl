@@ -28,10 +28,10 @@ function ess_is(r::PSISResult; bad_shape_missing::Bool=true)
 end
 function ess_is(weights; reff=1)
     dims = sample_dims(weights)
-    neff = reff ./ sum(abs2, weights; dims=dims)
-    weights isa AbstractVector && return neff[1]
+    neff = broadcast_last_dims(/, reff, sum(abs2, weights; dims=dims))
     return dropdims(neff; dims=dims)
 end
+ess_is(weights::AbstractVector; reff::Real=1) = reff / sum(abs2, weights)
 
 function _apply_missing(neff, dist; bad_shape_missing)
     return bad_shape_missing && pareto_shape(dist) > 0.7 ? missing : neff

@@ -25,8 +25,8 @@ using Test
     @test ess_is(result; bad_shape_missing=false) ≈
         ess_is(exp.(logw .- logw_norm); reff=1.5)
 
-    logw = randn(3, 100, 4)
-    logw_norm = dropdims(logsumexp(logw; dims=(2, 3)); dims=(2, 3))
+    logw = randn(100, 4, 3)
+    logw_norm = dropdims(logsumexp(logw; dims=(1, 2)); dims=(1, 2))
     tail_dists = [
         PSIS.GeneralizedPareto(0.0, 1.0, 0.69),
         PSIS.GeneralizedPareto(0.0, 1.0, 0.71),
