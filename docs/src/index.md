@@ -25,7 +25,7 @@ Random.seed!(42) # hide
 using PSIS, Distributions
 proposal = Normal()
 target = TDist(7)
-x = rand(proposal, 30, 1_000)
+x = rand(proposal, 1_000, 30)
 log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
 result = psis(log_ratios)
 nothing # hide
