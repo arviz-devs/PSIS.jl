@@ -29,7 +29,7 @@ See [`psis`](@ref), [`PSISResult`](@ref).
 using PSIS, Distributions, Plots
 proposal = Normal()
 target = TDist(7)
-x = rand(proposal, 100, 1_000)
+x = rand(proposal, 1_000, 100)
 log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
 result = psis(log_ratios)
 paretoshapeplot(result)
