@@ -94,7 +94,7 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     npoints = r.nparams
     nchains = r.nchains
     println(
-        io, "PSISResult with $npoints parameters, $(r.ndraws) draws, and $nchains chains"
+        io, "PSISResult with $(r.ndraws) draws, $nchains chains, and $npoints parameters"
     )
     return _print_pareto_shape_summary(io, r; newline_at_end=false)
 end

@@ -42,7 +42,7 @@ using AxisArrays: AxisArrays
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
-                PSISResult with 1 parameters, 500 draws, and 1 chains
+                PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto shape (k) diagnostic values:
                                     Count       Min. ESS
                  (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, result.ess))"""
@@ -81,7 +81,7 @@ using AxisArrays: AxisArrays
             reff = [100; ones(29)]
             result = psis(log_ratios, reff)
             @test sprint(show, "text/plain", result) == """
-                PSISResult with 30 parameters, 100 draws, and 1 chains
+                PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto shape (k) diagnostic values:
                                         Count       Min. ESS
                  (-Inf, 0.5]  good       4 (13.3%)  95
