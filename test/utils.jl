@@ -34,4 +34,21 @@ using Test
         x = randn(10, 100, 4)
         @test PSIS.sample_dims(x) === (2, 3)
     end
+
+    @testset "broadcast_last_dims" begin
+        adim = AxisArrays.Axis{:a}([Symbol("a[$i]") for i in 1:2])
+        bdim = AxisArrays.Axis{:b}([Symbol("b[$i]") for i in 1:10])
+        x = AxisArrays.AxisArray(randn(2, 10), adim, bdim)
+        y = AxisArrays.AxisArray(randn(10), bdim)
+        @test @inferred(PSIS.broadcast_last_dims(/, x[1, :], y)) == x[1, :] ./ y
+        @test @inferred(PSIS.broadcast_last_dims(/, x, y)) == x ./ reshape(y, 1, :)
+        @test @inferred(PSIS.broadcast_last_dims(/, y, x)) == reshape(y, 1, :) ./ x
+        @test @inferred(PSIS.broadcast_last_dims(/, x, 3)) == x ./ 3
+        @test @inferred(PSIS.broadcast_last_dims(/, 4, x)) == 4 ./ x
+
+        @test PSIS.broadcast_last_dims(/, x, y) isa AxisArrays.AxisArray
+        @test AxisArrays.axes(PSIS.broadcast_last_dims(/, x, y)) == AxisArrays.axes(x)
+        @test PSIS.broadcast_last_dims(/, y, x) isa AxisArrays.AxisArray
+        @test AxisArrays.axes(PSIS.broadcast_last_dims(/, y, x)) == AxisArrays.axes(x)
+    end
 end
