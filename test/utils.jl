@@ -1,5 +1,6 @@
 using PSIS
 using Test
+using AxisArrays: AxisArrays
 
 @testset "utils" begin
     @testset "param_dim" begin
