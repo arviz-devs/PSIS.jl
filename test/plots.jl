@@ -4,7 +4,7 @@ using Test
 
 @testset "PSISPlots" begin
     @testset "$f" for f in (PSISPlots.paretoshapeplot, PSISPlots.paretoshapeplot!),
-        sz in (100, (10, 100))
+        sz in (100, (100, 10))
 
         result = psis(randn(sz...))
 
@@ -35,7 +35,7 @@ using Test
     end
 
     @testset "plot(::PSISResult)" begin
-        result = psis(randn(10, 100))
+        result = psis(randn(100, 10))
         for showlines in (true, false)
             plt = PSISPlots.paretoshapeplot(result; showlines=showlines)
             plt2 = plot(result; showlines=showlines)
@@ -49,7 +49,7 @@ using Test
     end
 
     @testset "plot(::PSISResult; seriestype=:path)" begin
-        result = psis(randn(10, 100))
+        result = psis(randn(100, 10))
         plt = plot(result; seriestype=:path)
         @test length(plt.series_list) == 1
         @test plt[1][1][:x] == eachindex(result.pareto_shape)
