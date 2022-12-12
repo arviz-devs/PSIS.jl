@@ -13,16 +13,16 @@ missing_to_nan(x) = x
 # dimension corresponding to parameters
 function param_dim(x)
     @assert ndims(x) > 1
-    return 1
+    return ndims(x)
 end
 
 # view of first draw from first chain (i.e. vector of parameters)
 function first_draw(x::AbstractArray)
-    dims = Base.setindex(ntuple(one, ndims(x)), :, param_dim(x))
+    dims = Base.setindex(map(first, axes(x)), :, param_dim(x))
     return view(x, dims...)
 end
 
-# view of all draws 
+# view of all draws
 param_draws(x::AbstractArray, i::Int) = selectdim(x, param_dim(x), i)
 
 # dimensions corresponding to draws and chains
