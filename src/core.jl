@@ -263,7 +263,9 @@ function psis!(logw::AbstractArray, reff=1; warn::Bool=true, kwargs...)
     end
 
     # combine results
-    result = PSISResult(logw, log_weights_norm, reffs, tail_lengths, tail_dists)
+    result = PSISResult(
+        logw, log_weights_norm, reffs, tail_lengths, map(identity, tail_dists)
+    )
 
     # warn for bad shape
     warn && check_pareto_shape(result)
