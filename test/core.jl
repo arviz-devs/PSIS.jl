@@ -84,10 +84,10 @@ using AxisArrays: AxisArrays
                 PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto shape (k) diagnostic values:
                                         Count       Min. ESS
-                 (-Inf, 0.5]  good       4 (13.3%)  95
-                  (0.5, 0.7]  okay       2 (6.7%)   97
+                 (-Inf, 0.5]  good       2 (6.7%)   98
+                  (0.5, 0.7]  okay       6 (20.0%)  92
                     (0.7, 1]  bad        4 (13.3%)  ——
-                    (1, Inf)  very bad  19 (63.3%)  ——
+                    (1, Inf)  very bad  17 (56.7%)  ——
                           ——  missing    1 (3.3%)   ——"""
         end
     end
