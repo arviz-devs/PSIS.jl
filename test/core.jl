@@ -5,7 +5,7 @@ using ReferenceTests
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf
 using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
-using AxisArrays: AxisArrays
+using DimensionalData: Dimensions, DimArray
 
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
@@ -280,20 +280,22 @@ end
         chain_names = 1:4
         x = randn(length(iter_names), length(chain_names), length(param_names))
 
-        @testset "AxisArrays" begin
-            logr = AxisArrays.AxisArray(
+        @testset "DimensionalData" begin
+            logr = DimArray(
                 x,
-                AxisArrays.Axis{:iter}(iter_names),
-                AxisArrays.Axis{:chain}(chain_names),
-                AxisArrays.Axis{:param}(param_names),
+                (
+                    Dimensions.Dim{:iter}(iter_names),
+                    Dimensions.Dim{:chain}(chain_names),
+                    Dimensions.Dim{:param}(param_names),
+                ),
             )
             result = psis(logr)
-            @test result.log_weights isa AxisArrays.AxisArray
-            @test AxisArrays.axes(result.log_weights) == AxisArrays.axes(logr)
+            @test result.log_weights isa DimArray
+            @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
             for k in (:pareto_shape, :tail_length, :tail_dist, :reff, :log_weights_norm)
                 prop = getproperty(result, k)
-                @test prop isa AxisArrays.AxisArray
-                @test AxisArrays.axes(prop) == (AxisArrays.axes(logr, 3),)
+                @test prop isa DimArray
+                @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
             end
         end
     end
