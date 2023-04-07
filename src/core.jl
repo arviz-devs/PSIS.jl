@@ -195,9 +195,6 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
 # Keywords
 
-  - `improved=false`: If `true`, use the adaptive empirical prior of [^Zhang2010].
-    If `false`, use the simpler prior of [^ZhangStephens2009], which is also used in
-    [^VehtariSimpson2021].
   - `warn=true`: If `true`, warning messages are delivered
 
 # Returns
@@ -210,13 +207,6 @@ details and [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
     [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
-[^ZhangStephens2009]: Jin Zhang & Michael A. Stephens (2009)
-    A New and Efficient Estimation Method for the Generalized Pareto Distribution,
-    Technometrics, 51:3, 316-325,
-    DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
-[^Zhang2010]: Jin Zhang (2010) Improving on Estimation for the Generalized Pareto Distribution,
-    Technometrics, 52:3, 335-339,
-    DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
 psis, psis!
 
@@ -227,13 +217,7 @@ function psis(logr, reff=1; kwargs...)
     return psis!(logw, reff; kwargs...)
 end
 
-function psis!(
-    logw::AbstractVector,
-    reff=1;
-    sorted::Bool=false, # deprecated
-    improved::Bool=false,
-    warn::Bool=true,
-)
+function psis!(logw::AbstractVector, reff=1; warn::Bool=true)
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
@@ -252,7 +236,7 @@ function psis!(
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
-    _, tail_dist = psis_tail!(logw_tail, logu, M, improved)
+    _, tail_dist = psis_tail!(logw_tail, logu, M)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
@@ -311,14 +295,14 @@ end
 
 tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
 
-function psis_tail!(logw, logμ, M=length(logw), improved=false)
+function psis_tail!(logw, logμ, M=length(logw))
     T = eltype(logw)
     logw_max = logw[M]
     # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
     # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
     w = (logw .= exp.(logw .- logw_max))
-    tail_dist_scaled = fit_gpd(w; sorted=true, improved=improved, μ=μ_scaled)
+    tail_dist_scaled = fit_gpd(w; sorted=true, μ=μ_scaled)
     tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
     # undo the scaling
     k = tail_dist_adjusted.k

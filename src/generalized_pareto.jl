@@ -56,14 +56,12 @@ end
 
 Fit a [`GeneralizedPareto`](@ref) with location `μ` to the data `x`.
 
-The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Zhang2010].
+The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
 
 # Keywords
 
   - `sorted::Bool=issorted(x)`: If `true`, `x` is assumed to be sorted. If `false`, a sorted
     copy of `x` is made.
-  - `improved::Bool=true`: If `true`, use the adaptive empirical prior of [^Zhang2010].
-    If `false`, use the simpler prior of [^ZhangStephens2009].
   - `min_points::Int=30`: The minimum number of quadrature points to use when estimating the
     posterior mean of ``\\theta = \\frac{\\xi}{\\sigma}``.
 
@@ -71,20 +69,13 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009][^Z
     A New and Efficient Estimation Method for the Generalized Pareto Distribution,
     Technometrics, 51:3, 316-325,
     DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
-[^Zhang2010]: Jin Zhang (2010) Improving on Estimation for the Generalized Pareto Distribution,
-    Technometrics, 52:3, 335-339,
-    DOI: [10.1198/TECH.2010.09206](https://doi.org/10.1198/TECH.2010.09206)
 """
 fit_gpd(x::AbstractArray; kwargs...) = fit_gpd_empiricalbayes(x; kwargs...)
 
 # Note: our k is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
 function fit_gpd_empiricalbayes(
-    x::AbstractArray;
-    μ=zero(eltype(x)),
-    sorted::Bool=issorted(vec(x)),
-    improved::Bool=true,
-    min_points::Int=30,
+    x::AbstractArray; μ=zero(eltype(x)), sorted::Bool=issorted(vec(x)), min_points::Int=30
 )
     # fitting is faster when the data are sorted
     xsorted = sorted ? vec(x) : sort(vec(x))
@@ -97,7 +88,7 @@ function fit_gpd_empiricalbayes(
         return GeneralizedPareto(μ, xmax - μ, -1)
     end
     # estimate θ using empirical bayes
-    θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
+    θ_hat = _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points)
     # estimate remaining parameters using MLE
     return _fit_gpd_mle_given_mu_theta(xsorted, μ, θ_hat)
 end
@@ -105,16 +96,12 @@ end
 # estimate θ̂ = ∫θp(θ|x,μ)dθ, i.e. the posterior mean using quadrature over grid
 # of minimum length `min_points + floor(sqrt(length(x)))` uniformly sampled over an
 # empirical prior
-function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points, improved)
+function _fit_gpd_θ_empirical_bayes(μ, xsorted, min_points)
     T = Base.promote_eltype(xsorted, μ)
     n = length(xsorted)
 
     # empirical prior on y = r/(xmax-μ) + θ
-    θ_prior = if improved
-        _gpd_empirical_prior_improved(μ, xsorted, n)
-    else
-        _gpd_empirical_prior(μ, xsorted, n)
-    end
+    θ_prior = _gpd_empirical_prior(μ, xsorted, n)
 
     # quadrature points uniformly spaced on the quantiles of the θ prior
     npoints = min_points + floor(Int, sqrt(n))
@@ -140,25 +127,6 @@ function _gpd_empirical_prior(μ, xsorted, n=length(xsorted))
     x_25 = xsorted[max(fld(n + 2, 4), 1)]
     σ_star = inv(6 * (x_25 - μ))
     k_star = 1//2
-    return GeneralizedPareto(μ_star, σ_star, k_star)
-end
-
-# Zhang, 2010
-function _gpd_empirical_prior_improved(μ, xsorted, n=length(xsorted))
-    xmax = xsorted[n]
-    μ_star = (n - 1) / ((n + 1) * (μ - xmax))
-    p = (3//10, 2//5, 1//2, 3//5, 7//10, 4//5, 9//10)  # 0.3:0.1:0.9
-    q1 = (7, 6, 5, 4, 3, 2, 1)  # 10 .* (1 .- p)
-    q2 = (91, 84, 75, 64, 51, 36, 19)  # 100 .* (1 .- p .^ 2)
-    # q1/10- and q2/100- quantiles of xsorted without interpolation,
-    # i.e. the α-quantile of x without interpolation is x[max(1, floor(Int, α * n + 1/2))]
-    twon = 2 * n
-    x1mp = map(qi -> xsorted[max(1, fld(qi * twon + 1, 20))], q1)
-    x1mp2 = map(qi -> xsorted[max(1, fld(qi * twon + 1, 200))], q2)
-    expkp = @. (x1mp2 - x1mp) / (x1mp - μ)
-    σp = @. log(p, expkp) * (x1mp - μ) / (1 - expkp)
-    σ_star = inv(2 * Statistics.median(σp))
-    k_star = 1
     return GeneralizedPareto(μ_star, σ_star, k_star)
 end
 
