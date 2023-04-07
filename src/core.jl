@@ -77,7 +77,11 @@ function Base.getproperty(r::PSISResult, k::Symbol)
         return broadcast_last_dims(exp ∘ -, log_weights, log_weights_norm)
     elseif k === :nparams
         log_weights = getfield(r, :log_weights)
-        return ndims(log_weights) == 1 ? 1 : size(log_weights, param_dim(log_weights))
+        return if ndims(log_weights) == 1
+            1
+        else
+            prod(Base.Fix1(size, log_weights), param_dims(log_weights))
+        end
     elseif k === :ndraws
         log_weights = getfield(r, :log_weights)
         return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 1)
@@ -167,10 +171,6 @@ end
 _pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
 _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
-function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
-    return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,GeneralizedPareto{T}}}
-end
-
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
     psis!(log_ratios, reff = 1.0; kwargs...) -> PSISResult
@@ -184,14 +184,15 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
   - `log_ratios`: an array of logarithms of importance ratios, with one of the following
     sizes:
 
-      + `(ndraws,)`: a vector of draws for a single parameter from a single chain
-      + `(ndraws, nparams)`: a matrix of draws for a multiple parameter from a single chain
-      + `(ndraws, nchains, nparams)`: an array of draws for multiple parameters from
+      + `(draws,)`: a vector of draws for a single parameter from a single chain
+      + `(draws, params)`: a matrix of draws for a multiple parameter from a single chain
+      + `(draws, chains, params...)`: an array of draws for multiple parameters from
         multiple chains, e.g. as might be generated with Markov chain Monte Carlo.
 
-  - `reff::Union{Real,AbstractVector}`: the ratio(s) of effective sample size of
+  - `reff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
     `log_ratios` and the actual sample size `reff = ess/(ndraws * nchains)`, used to account
-    for autocorrelation, e.g. due to Markov chain Monte Carlo.
+    for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
+    size `(params...,)` to match `log_ratios`.
 
 # Keywords
 
@@ -241,22 +242,31 @@ function psis!(logw::AbstractVector, reff=1; warn::Bool=true)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; warn::Bool=true, kwargs...)
-    # allocate containers, calling psis! for first parameter to determine eltype
-    logw_firstdraw = first_draw(logw)
-    reffs = reff isa Number ? fill!(similar(logw_firstdraw), reff) : reff
-    r1 = psis!(vec(param_draws(logw, 1)), reffs[1]; warn=false, kwargs...)
-    results = similar(logw_firstdraw, _promote_result_type(typeof(r1)))
-    i, inds = Iterators.peel(eachindex(results, reffs))
-    results[i] = r1
-    # call psis! for remaining parameters
-    Threads.@threads for i in collect(inds)
-        results[i] = psis!(vec(param_draws(logw, i)), reffs[i]; warn=false, kwargs...)
+    T = typeof(float(one(eltype(logw))))
+    # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
+    param_axes = map(Base.Fix1(axes, logw), param_dims(logw))
+
+    # allocate containers
+    reffs = similar(logw, eltype(reff), param_axes)
+    reffs .= reff
+    log_weights_norm = similar(logw, T, param_axes)
+    tail_lengths = similar(logw, Int, param_axes)
+    tail_dists = similar(logw, Union{Missing,GeneralizedPareto{T}}, param_axes)
+
+    # call psis! in parallel for all parameters
+    Threads.@threads for inds in CartesianIndices(param_axes)
+        logw_i = vec(param_draws(logw, inds))
+        result_i = psis!(logw_i, reffs[inds]; warn=false, kwargs...)
+        log_weights_norm[inds] = result_i.log_weights_norm
+        tail_lengths[inds] = result_i.tail_length
+        tail_dists[inds] = result_i.tail_dist
     end
+
     # combine results
-    logw_norms = map(r -> r.log_weights_norm, results)
-    tail_lengths = map(r -> r.tail_length, results)
-    tail_dists = map(r -> r.tail_dist, results)
-    result = PSISResult(logw, logw_norms, reffs, tail_lengths, tail_dists)
+    result = PSISResult(
+        logw, log_weights_norm, reffs, tail_lengths, map(identity, tail_dists)
+    )
+
     # warn for bad shape
     warn && check_pareto_shape(result)
     return result
@@ -277,7 +287,7 @@ function check_pareto_shape(dist::GeneralizedPareto)
     end
     return nothing
 end
-function check_pareto_shape(dists::AbstractVector{<:Union{Missing,GeneralizedPareto}})
+function check_pareto_shape(dists::AbstractArray{<:Union{Missing,GeneralizedPareto}})
     nmissing = count(ismissing, dists)
     ngt07 = count(x -> !(ismissing(x)) && pareto_shape(x) > 0.7, dists)
     ngt1 = iszero(ngt07) ? ngt07 : count(x -> !(ismissing(x)) && pareto_shape(x) > 1, dists)
