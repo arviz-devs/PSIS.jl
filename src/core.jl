@@ -167,10 +167,6 @@ end
 _pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
 _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
-function _promote_result_type(::Type{PSISResult{T,W,N,R,L,D}}) where {T,W,N,R,L,D}
-    return PSISResult{T,W,N,R,L,D2} where {D2<:Union{D,Missing,GeneralizedPareto{T}}}
-end
-
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
     psis!(log_ratios, reff = 1.0; kwargs...) -> PSISResult
@@ -241,22 +237,29 @@ function psis!(logw::AbstractVector, reff=1; warn::Bool=true)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
 function psis!(logw::AbstractArray, reff=1; warn::Bool=true, kwargs...)
-    # allocate containers, calling psis! for first parameter to determine eltype
-    logw_firstdraw = first_draw(logw)
-    reffs = reff isa Number ? fill!(similar(logw_firstdraw), reff) : reff
-    r1 = psis!(vec(param_draws(logw, 1)), reffs[1]; warn=false, kwargs...)
-    results = similar(logw_firstdraw, _promote_result_type(typeof(r1)))
-    i, inds = Iterators.peel(eachindex(results, reffs))
-    results[i] = r1
-    # call psis! for remaining parameters
-    Threads.@threads for i in collect(inds)
-        results[i] = psis!(vec(param_draws(logw, i)), reffs[i]; warn=false, kwargs...)
+    T = typeof(float(one(eltype(logw))))
+    # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
+    param_axes = axes(logw, param_dim(logw))
+
+    # allocate containers
+    reffs = similar(logw, eltype(reff), param_axes)
+    reffs .= reff
+    log_weights_norm = similar(logw, T, param_axes)
+    tail_lengths = similar(logw, Int, param_axes)
+    tail_dists = similar(logw, Union{Missing,GeneralizedPareto{T}}, param_axes)
+
+    # call psis! in parallel for all parameters
+    Threads.@threads for i in param_axes
+        logw_i = vec(param_draws(logw, i))
+        result_i = psis!(logw_i, reffs[i]; warn=false, kwargs...)
+        log_weights_norm[i] = result_i.log_weights_norm
+        tail_lengths[i] = result_i.tail_length
+        tail_dists[i] = result_i.tail_dist
     end
+
     # combine results
-    logw_norms = map(r -> r.log_weights_norm, results)
-    tail_lengths = map(r -> r.tail_length, results)
-    tail_dists = map(r -> r.tail_dist, results)
-    result = PSISResult(logw, logw_norms, reffs, tail_lengths, tail_dists)
+    result = PSISResult(logw, log_weights_norm, reffs, tail_lengths, tail_dists)
+
     # warn for bad shape
     warn && check_pareto_shape(result)
     return result
