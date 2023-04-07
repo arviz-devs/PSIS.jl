@@ -16,12 +16,6 @@ function param_dim(x)
     return ndims(x)
 end
 
-# view of first draw from first chain (i.e. vector of parameters)
-function first_draw(x::AbstractArray)
-    dims = Base.setindex(map(first, axes(x)), :, param_dim(x))
-    return view(x, dims...)
-end
-
 # view of all draws
 param_draws(x::AbstractArray, i::Int) = selectdim(x, param_dim(x), i)
 

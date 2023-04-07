@@ -11,14 +11,6 @@ using AxisArrays: AxisArrays
         @test PSIS.param_dim(x) == 3
     end
 
-    @testset "first_draw" begin
-        x = randn(100, 10)
-        @test PSIS.first_draw(x) === view(x, 1, :)
-
-        x = randn(100, 4, 10)
-        @test PSIS.first_draw(x) === view(x, 1, 1, :)
-    end
-
     @testset "param_draws" begin
         x = randn(100, 10)
         @test PSIS.param_draws(x, 3) === view(x, :, 3)
