@@ -252,15 +252,12 @@ end
         x = rand(rng, proposal, sz)
         logr = logpdf.(target, x) .- logpdf.(proposal, x)
         logr = permutedims(logr, (2, 3, 1))
-        @testset for r_eff in (0.7, 1.2), improved in (true, false)
+        @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = psis(logr, r_effs; improved=improved)
+            result = psis(logr, r_effs)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
-            if improved
-                basename = basename * "_improved"
-            end
             @test_reference(
                 "references/$basename.jld2",
                 Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
