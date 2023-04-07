@@ -18,7 +18,7 @@ LogExpFunctions = "0.2.0, 0.3"
 Plots = "1"
 RecipesBase = "1"
 ReferenceTests = "0.9"
-julia = "1"
+julia = "1.4"
 
 [extras]
 AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
