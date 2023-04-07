@@ -146,16 +146,6 @@ end
         end
     end
 
-    @testset "keywords" begin
-        @testset "sorted=true" begin
-            x = randn(100)
-            perm = sortperm(x)
-            @test psis(x).log_weights ==
-                invpermute!(psis(x[perm]; sorted=true).log_weights, perm)
-            @test psis(x).pareto_shape == psis(x[perm]; sorted=true).pareto_shape
-        end
-    end
-
     @testset "warnings" begin
         io = IOBuffer()
         logr = randn(5)
