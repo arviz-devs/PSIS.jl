@@ -16,7 +16,7 @@ where ``r_{\\mathrm{eff}}`` is the relative efficiency of the `log_weights`.
 Estimate ESS for Pareto-smoothed importance sampling.
 
 !!! note
-    
+
     ESS estimates for Pareto shape values ``k > 0.7``, which are unreliable and misleadingly
     high, are set to `missing`. To avoid this, set `bad_shape_missing=false`.
 """
