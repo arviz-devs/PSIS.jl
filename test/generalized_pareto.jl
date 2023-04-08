@@ -13,6 +13,11 @@ using Test
             @test dhat.μ == μ
             @test dhat.σ ≈ σ atol = 0.01
             @test dhat.k ≈ k atol = 0.01
+            @test PSIS.fit_gpd(x; μ=μ, min_points=80) ==
+                PSIS.fit_gpd(x; prior_adjusted=true, μ=μ, min_points=80)
+            dhat2 = PSIS.fit_gpd(x; prior_adjusted=false, μ=μ, min_points=80)
+            @test dhat ≠ dhat2
+            @test dhat == PSIS.prior_adjust_shape(dhat2, length(x))
         end
         @testset "nearly uniform" begin
             x = ones(200_000)
