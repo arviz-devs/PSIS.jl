@@ -60,6 +60,8 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
 
 # Keywords
 
+  - `prior_adjusted::Bool=true`, If `true`, a weakly informative Normal prior centered on
+    ``\\frac{1}{2}`` is used for the shape ``k``.
   - `sorted::Bool=issorted(x)`: If `true`, `x` is assumed to be sorted. If `false`, a sorted
     copy of `x` is made.
   - `min_points::Int=30`: The minimum number of quadrature points to use when estimating the
@@ -70,7 +72,11 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
     Technometrics, 51:3, 316-325,
     DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
 """
-fit_gpd(x::AbstractArray; kwargs...) = fit_gpd_empiricalbayes(x; kwargs...)
+function fit_gpd(x::AbstractArray; prior_adjusted::Bool=true, kwargs...)
+    tail_dist = fit_gpd_empiricalbayes(x; kwargs...)
+    prior_adjusted || return tail_dist
+    return prior_adjust_shape(tail_dist, length(x))
+end
 
 # Note: our k is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 

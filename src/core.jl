@@ -237,7 +237,7 @@ function psis!(logw::AbstractVector, reff=1; warn::Bool=true)
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
         return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, missing)
     end
-    _, tail_dist = psis_tail!(logw_tail, logu, M)
+    _, tail_dist = psis_tail!(logw_tail, logu)
     warn && check_pareto_shape(tail_dist)
     return PSISResult(logw, LogExpFunctions.logsumexp(logw), reff_val, M, tail_dist)
 end
@@ -305,23 +305,22 @@ end
 
 tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
 
-function psis_tail!(logw, logμ, M=length(logw))
+function psis_tail!(logw, logμ)
     T = eltype(logw)
-    logw_max = logw[M]
+    logw_max = logw[end]
     # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
     # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
     w = (logw .= exp.(logw .- logw_max))
-    tail_dist_scaled = fit_gpd(w; sorted=true, μ=μ_scaled)
-    tail_dist_adjusted = prior_adjust_shape(tail_dist_scaled, M)
+    tail_dist = fit_gpd(w; prior_adjusted=true, sorted=true, μ=μ_scaled)
     # undo the scaling
-    k = tail_dist_adjusted.k
+    k = pareto_shape(tail_dist)
     if isfinite(k)
-        p = uniform_probabilities(T, M)
+        p = uniform_probabilities(T, length(logw))
         @inbounds for i in eachindex(logw, p)
             # undo scaling in the log-weights
-            logw[i] = min(log(quantile(tail_dist_adjusted, p[i])), 0) + logw_max
+            logw[i] = min(log(quantile(tail_dist, p[i])), 0) + logw_max
         end
     end
-    return logw, tail_dist_adjusted
+    return logw, tail_dist
 end
