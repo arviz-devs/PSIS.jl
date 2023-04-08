@@ -311,15 +311,15 @@ function psis_tail!(logw, logμ)
     # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
     # equivalent to scaling the weights to have a maximum of 1.
     μ_scaled = exp(logμ - logw_max)
-    w = (logw .= exp.(logw .- logw_max))
-    tail_dist = fit_gpd(w; prior_adjusted=true, sorted=true, μ=μ_scaled)
+    w_scaled = (logw .= exp.(logw .- logw_max) .- μ_scaled)
+    tail_dist = fit_gpd(w_scaled; prior_adjusted=true, sorted=true)
     # undo the scaling
     k = pareto_shape(tail_dist)
     if isfinite(k)
         p = uniform_probabilities(T, length(logw))
         @inbounds for i in eachindex(logw, p)
             # undo scaling in the log-weights
-            logw[i] = min(log(quantile(tail_dist, p[i])), 0) + logw_max
+            logw[i] = min(log(quantile(tail_dist, p[i]) + μ_scaled), 0) + logw_max
         end
     end
     return logw, tail_dist
