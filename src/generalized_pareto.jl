@@ -74,9 +74,14 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
 """
 function fit_gpd(x::AbstractArray; prior_adjusted::Bool=true, kwargs...)
     tail_dist = fit_gpd_empiricalbayes(x; kwargs...)
-    prior_adjusted || return tail_dist
-    return prior_adjust_shape(tail_dist, length(x))
+    if prior_adjusted && !_is_uniform(tail_dist)
+        return prior_adjust_shape(tail_dist, length(x))
+    else
+        return tail_dist
+    end
 end
+
+_is_uniform(d::GeneralizedPareto) = iszero(d.σ) && isone(-d.k)
 
 # Note: our k is ZhangStephens2009's -k, and our θ is ZhangStephens2009's -θ
 
