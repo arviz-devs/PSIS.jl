@@ -31,27 +31,9 @@ function sample_dims(x::AbstractArray)
 end
 sample_dims(::AbstractVector) = Colon()
 
-"""
-    broadcast_last_dims(f, x, y)
-
-Compute `f.(x, y)` but where `y` shares the last dimensions of `x` instead of the first.
-
-This function adds leading singleton dimensions to `y` until it has the same number of
-dimensions as `x`.
-
-The function tries to keep the final array type as close as possible to the input type.
-"""
-function broadcast_last_dims(f, x, y)
-    (x isa Number || y isa Number || ndims(x) == ndims(y)) && return f.(x, y)
-    if ndims(x) > ndims(y)
-        yreshape = reshape(y, ntuple(one, ndims(x) - ndims(y))..., size(y)...)
-        z = f.(x, yreshape)
-        zdim = similar(x, eltype(z))
-    else
-        xreshape = reshape(x, ntuple(one, ndims(y) - ndims(x))..., size(x)...)
-        z = f.(xreshape, y)
-        zdim = similar(y, eltype(z))
+function _maybe_log_normalize!(x::AbstractArray, normalize::Bool)
+    if normalize
+        x .-= LogExpFunctions.logsumexp(x; dims=sample_dims(x))
     end
-    copyto!(zdim, z)
-    return zdim
+    return x
 end

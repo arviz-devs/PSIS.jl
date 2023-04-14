@@ -14,22 +14,24 @@ using DimensionalData: Dimensions, DimArray
         tail_length = 100
         reff = 2.0
         tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, reff, tail_length, tail_dist, false)
         @test result isa PSISResult{Float64}
-        @test sort(propertynames(result)) == [
-            :log_weights,
-            :log_weights_norm,
-            :nchains,
-            :ndraws,
-            :nparams,
-            :pareto_shape,
-            :reff,
-            :tail_dist,
-            :tail_length,
-            :weights,
-        ]
+        @test issetequal(
+            propertynames(result),
+            [
+                :log_weights,
+                :nchains,
+                :ndraws,
+                :normalized,
+                :nparams,
+                :pareto_shape,
+                :reff,
+                :tail_dist,
+                :tail_length,
+                :weights,
+            ],
+        )
         @test result.log_weights == log_weights
-        @test result.log_weights_norm == log_weights_norm
         @test result.weights ≈ softmax(log_weights)
         @test result.reff == reff
         @test result.nparams == 1
@@ -51,7 +53,8 @@ using DimensionalData: Dimensions, DimArray
 
     @testset "array log-weights" begin
         log_weights = randn(500, 4, 3)
-        log_weights_norm = dropdims(logsumexp(log_weights; dims=(1, 2)); dims=(1, 2))
+        log_weights_norm = logsumexp(log_weights; dims=(1, 2))
+        log_weights .-= log_weights_norm
         tail_length = [1600, 1601, 1602]
         reff = [0.8, 0.9, 1.1]
         tail_dist = [
@@ -59,10 +62,9 @@ using DimensionalData: Dimensions, DimArray
             PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
             PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
         ]
-        result = PSISResult(log_weights, log_weights_norm, reff, tail_length, tail_dist)
+        result = PSISResult(log_weights, reff, tail_length, tail_dist, true)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.log_weights_norm == log_weights_norm
         @test result.weights ≈ softmax(log_weights; dims=(1, 2))
         @test result.reff == reff
         @test result.nparams == 3
@@ -118,6 +120,11 @@ end
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
+                @test exp.(logw) == r.weights
+
+                r2 = psis(logr; normalize=false)
+                @test !(r2.log_weights ≈ r.log_weights)
+                @test r2.weights ≈ r.weights
 
                 if length(sz) == 3
                     @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
@@ -150,7 +157,7 @@ end
         io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr)
+            psis(logr; normalize=false)
         end
         @test result.log_weights == logr
         @test ismissing(result.tail_dist)
@@ -170,7 +177,7 @@ end
             vcat(ones(50), fill(-Inf, 435)),
         ]
             result = with_logger(SimpleLogger(io)) do
-                psis(logr)
+                psis(logr; normalize=false)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
             @test ismissing(result.tail_dist)
@@ -183,9 +190,8 @@ end
         rng = MersenneTwister(42)
         x = rand(rng, Exponential(50), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
-        result = psis(logr)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr)
+            psis(logr; normalize=false)
         end
         @test result.log_weights != logr
         @test result.pareto_shape > 0.7
@@ -254,7 +260,7 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = psis(logr, r_effs)
+            result = psis(logr, r_effs; normalize=false)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
@@ -292,7 +298,7 @@ end
             result = psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :reff, :log_weights_norm)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
                 prop = getproperty(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))

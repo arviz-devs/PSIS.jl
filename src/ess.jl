@@ -28,8 +28,7 @@ function ess_is(r::PSISResult; bad_shape_missing::Bool=true)
 end
 function ess_is(weights; reff=1)
     dims = sample_dims(weights)
-    neff = broadcast_last_dims(/, reff, sum(abs2, weights; dims=dims))
-    return dropdims(neff; dims=dims)
+    return reff ./ dropdims(sum(abs2, weights; dims=dims); dims=dims)
 end
 ess_is(weights::AbstractVector; reff::Real=1) = reff / sum(abs2, weights)
 
