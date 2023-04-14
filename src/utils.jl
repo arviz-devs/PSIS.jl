@@ -31,6 +31,13 @@ function sample_dims(x::AbstractArray)
 end
 sample_dims(::AbstractVector) = Colon()
 
+function _maybe_log_normalize!(x::AbstractArray, normalize::Bool)
+    if normalize
+        x .-= LogExpFunctions.logsumexp(x; dims=sample_dims(x))
+    end
+    return x
+end
+
 """
     broadcast_last_dims(f, x, y)
 
