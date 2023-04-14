@@ -39,21 +39,4 @@ using DimensionalData: Dimensions, DimArray
         x = randn(100, 4, 10)
         @test PSIS.sample_dims(x) === (1, 2)
     end
-
-    @testset "broadcast_last_dims" begin
-        adim = Dimensions.Dim{:a}([Symbol("a[$i]") for i in 1:2])
-        bdim = Dimensions.Dim{:b}([Symbol("b[$i]") for i in 1:10])
-        x = DimArray(randn(2, 10), (adim, bdim))
-        y = DimArray(randn(10), (bdim,))
-        @test @inferred(PSIS.broadcast_last_dims(/, x[1, :], y)) == x[1, :] ./ y
-        @test @inferred(PSIS.broadcast_last_dims(/, x, y)) == x ./ reshape(y, 1, :)
-        @test @inferred(PSIS.broadcast_last_dims(/, y, x)) == reshape(y, 1, :) ./ x
-        @test @inferred(PSIS.broadcast_last_dims(/, x, 3)) == x ./ 3
-        @test @inferred(PSIS.broadcast_last_dims(/, 4, x)) == 4 ./ x
-
-        @test PSIS.broadcast_last_dims(/, x, y) isa DimArray
-        @test Dimensions.dims(PSIS.broadcast_last_dims(/, x, y)) == Dimensions.dims(x)
-        @test PSIS.broadcast_last_dims(/, y, x) isa DimArray
-        @test Dimensions.dims(PSIS.broadcast_last_dims(/, y, x)) == Dimensions.dims(x)
-    end
 end
