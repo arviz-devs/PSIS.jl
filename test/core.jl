@@ -78,7 +78,7 @@ using DimensionalData: Dimensions, DimArray
             proposal = Normal()
             target = TDist(7)
             rng = MersenneTwister(42)
-            x = rand(rng, proposal, 100, 30)
+            x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
             reff = [100; ones(29)]
             result = psis(log_ratios, reff)
@@ -110,8 +110,8 @@ end
         ]
             proposal = Exponential(θ)
             k_exp = 1 - θ
-            for sz in ((100_000,), (100_000, 5), (100_000, 4, 5))
-                dims = length(sz) == 1 ? Colon() : 1:(length(sz) - 1)
+            for sz in ((100_000,), (100_000, 4), (100_000, 4, 5))
+                dims = length(sz) < 3 ? Colon() : 1:(length(sz) - 1)
                 rng = MersenneTwister(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
@@ -126,16 +126,16 @@ end
                 @test !(r2.log_weights ≈ r.log_weights)
                 @test r2.weights ≈ r.weights
 
-                if length(sz) == 3
+                if length(sz) > 1
                     @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
                 else
                     @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
                 end
 
                 k = r.pareto_shape
-                @test k isa (length(sz) == 1 ? Number : AbstractVector)
+                @test k isa (length(sz) < 3 ? Number : AbstractVector)
                 tail_dist = r.tail_dist
-                if length(sz) == 1
+                if length(sz) < 3
                     @test tail_dist isa PSIS.GeneralizedPareto
                     @test tail_dist.k == k
                 else
