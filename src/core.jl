@@ -75,20 +75,21 @@ function Base.getproperty(r::PSISResult, k::Symbol)
     if k === :weights
         log_weights = getfield(r, :log_weights)
         getfield(r, :normalized) && return exp.(log_weights)
-        return LogExpFunctions.softmax(log_weights; dims=sample_dims(log_weights))
+        return LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
     elseif k === :nparams
         log_weights = getfield(r, :log_weights)
         return if ndims(log_weights) == 1
             1
         else
-            prod(Base.Fix1(size, log_weights), param_dims(log_weights))
+            param_dims = _param_dims(log_weights)
+            prod(Base.Fix1(size, log_weights), param_dims; init=1)
         end
     elseif k === :ndraws
         log_weights = getfield(r, :log_weights)
-        return ndims(log_weights) == 1 ? length(log_weights) : size(log_weights, 1)
+        return size(log_weights, 1)
     elseif k === :nchains
         log_weights = getfield(r, :log_weights)
-        return ndims(log_weights) == 3 ? size(log_weights, 2) : 1
+        return size(log_weights, 2)
     end
     k === :pareto_shape && return pareto_shape(r)
     k === :ess && return ess_is(r)
@@ -182,18 +183,13 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 
 # Arguments
 
-  - `log_ratios`: an array of logarithms of importance ratios, with one of the following
-    sizes:
-
-      + `(draws,)`: a vector of draws for a single parameter from a single chain
-      + `(draws, params)`: a matrix of draws for a multiple parameter from a single chain
-      + `(draws, chains, params...)`: an array of draws for multiple parameters from
-        multiple chains, e.g. as might be generated with Markov chain Monte Carlo.
-
+  - `log_ratios`: an array of logarithms of importance ratios, with size
+    `(draws, [chains, [parameters...]])`, where `chains>1` would be used when chains are
+    generated using Markov chain Monte Carlo.
   - `reff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
-    `log_ratios` and the actual sample size `reff = ess/(ndraws * nchains)`, used to account
+    `log_ratios` and the actual sample size `reff = ess/(draws * chains)`, used to account
     for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
-    size `(params...,)` to match `log_ratios`.
+    size `(parameters...,)` to match `log_ratios`.
 
 # Keywords
 
@@ -221,7 +217,7 @@ function psis(logr, reff=1; kwargs...)
     return psis!(logw, reff; kwargs...)
 end
 
-function psis!(logw::AbstractVector, reff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=true)
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
@@ -247,10 +243,17 @@ function psis!(logw::AbstractVector, reff=1; normalize::Bool=true, warn::Bool=tr
     _maybe_log_normalize!(logw, normalize)
     return PSISResult(logw, reff_val, M, tail_dist, normalize)
 end
+function psis!(logw::AbstractMatrix, reff=1; kwargs...)
+    result = psis!(vec(logw), only(reff); kwargs...)
+    # unflatten log_weights
+    return PSISResult(
+        logw, result.reff, result.tail_length, result.tail_dist, result.normalized
+    )
+end
 function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
-    param_axes = map(Base.Fix1(axes, logw), param_dims(logw))
+    param_axes = _param_axes(logw)
 
     # allocate containers
     reffs = similar(logw, eltype(reff), param_axes)
@@ -259,11 +262,11 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     tail_dists = similar(logw, Union{Missing,GeneralizedPareto{T}}, param_axes)
 
     # call psis! in parallel for all parameters
-    Threads.@threads for inds in CartesianIndices(param_axes)
-        logw_i = vec(param_draws(logw, inds))
-        result_i = psis!(logw_i, reffs[inds]; normalize=normalize, warn=false)
-        tail_lengths[inds] = result_i.tail_length
-        tail_dists[inds] = result_i.tail_dist
+    Threads.@threads for i in _eachparamindex(logw)
+        logw_i = _selectparam(logw, i)
+        result_i = psis!(logw_i, reffs[i]; normalize=normalize, warn=false)
+        tail_lengths[i] = result_i.tail_length
+        tail_dists[i] = result_i.tail_dist
     end
 
     # combine results

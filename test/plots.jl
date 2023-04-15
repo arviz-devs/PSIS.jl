@@ -49,7 +49,7 @@ using Test
     end
 
     @testset "plot(::PSISResult; seriestype=:path)" begin
-        result = psis(randn(100, 10))
+        result = psis(randn(100, 2, 10))
         plt = plot(result; seriestype=:path)
         @test length(plt.series_list) == 1
         @test plt[1][1][:x] == eachindex(result.pareto_shape)

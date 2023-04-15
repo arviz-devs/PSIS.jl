@@ -10,30 +10,27 @@ missing_to_nan(x::AbstractArray{>:Missing}) = replace(x, missing => NaN)
 missing_to_nan(::Missing) = NaN
 missing_to_nan(x) = x
 
-# dimension corresponding to parameters
-function param_dims(x)
-    N = ndims(x)
-    @assert N > 1
-    N == 2 && return (2,)
-    N ≥ 3 && return ntuple(i -> i + 2, N - 2)
-end
+# dimensions corresponding to draws (and maybe chains)
+_sample_dims(x::AbstractArray) = ntuple(identity, min(2, ndims(x)))
 
-# view of all draws
-function param_draws(x::AbstractArray, i::CartesianIndex)
+# dimension corresponding to parameters
+_param_dims(x::AbstractArray) = ntuple(i -> i + 2, max(0, ndims(x) - 2))
+
+# axes corresponding to parameters
+_param_axes(x::AbstractArray) = map(Base.Fix1(axes, x), _param_dims(x))
+
+# iterate over all parameters; combine with _selectparam
+_eachparamindex(x::AbstractArray) = CartesianIndices(_param_axes(x))
+
+# view of all draws for a param
+function _selectparam(x::AbstractArray, i::CartesianIndex)
     sample_dims = ntuple(_ -> Colon(), ndims(x) - length(i))
     return view(x, sample_dims..., i)
 end
 
-# dimensions corresponding to draws and chains
-function sample_dims(x::AbstractArray)
-    d = param_dims(x)
-    return filter(∉(d), ntuple(identity, ndims(x)))
-end
-sample_dims(::AbstractVector) = Colon()
-
 function _maybe_log_normalize!(x::AbstractArray, normalize::Bool)
     if normalize
-        x .-= LogExpFunctions.logsumexp(x; dims=sample_dims(x))
+        x .-= LogExpFunctions.logsumexp(x; dims=_sample_dims(x))
     end
     return x
 end
