@@ -153,7 +153,46 @@ end
         end
     end
 
+    @testset "reff combinations" begin
+        reffs_uniform = [rand(), fill(rand()), [rand()]]
+        x = randn(1000)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        @test_throws DimensionMismatch psis(x, rand(2))
+
+        x = randn(1000, 4)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        @test_throws DimensionMismatch psis(x, rand(2))
+
+        x = randn(1000, 4, 2)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        psis(x, rand(2))
+        @test_throws DimensionMismatch psis(x, rand(3))
+
+        x = randn(1000, 4, 2, 3)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        psis(x, rand(2, 3))
+        @test_throws DimensionMismatch psis(x, rand(3))
+    end
+
     @testset "warnings" begin
+        io = IOBuffer()
+        @testset for sz in (100, (100, 4, 3)), rbad in (-1, 0, NaN)
+            logr = randn(sz)
+            result = with_logger(SimpleLogger(io)) do
+                psis(logr, rbad)
+            end
+            msg = String(take!(io))
+            @test occursin("All values of `reff` should be finite, but some are not.", msg)
+        end
+
         io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
