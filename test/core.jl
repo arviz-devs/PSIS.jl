@@ -153,6 +153,35 @@ end
         end
     end
 
+    @testset "reff combinations" begin
+        reffs_uniform = [rand(), fill(rand()), [rand()]]
+        x = randn(1000)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        @test_throws DimensionMismatch psis(x, rand(2))
+
+        x = randn(1000, 4)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        @test_throws DimensionMismatch psis(x, rand(2))
+
+        x = randn(1000, 4, 2)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        psis(x, rand(2))
+        @test_throws DimensionMismatch psis(x, rand(3))
+
+        x = randn(1000, 4, 2, 3)
+        for r in reffs_uniform
+            psis(x, r)
+        end
+        psis(x, rand(2, 3))
+        @test_throws DimensionMismatch psis(x, rand(3))
+    end
+
     @testset "warnings" begin
         io = IOBuffer()
         logr = randn(5)

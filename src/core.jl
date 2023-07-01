@@ -219,6 +219,9 @@ end
 
 function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
+    if length(reff) != 1
+        throw(DimensionMismatch("`reff` has length $(length(reff)) but must have length 1"))
+    end
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
@@ -247,7 +250,7 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
     return PSISResult(logw, reff_val, M, tail_dist, normalize)
 end
 function psis!(logw::AbstractMatrix, reff=1; kwargs...)
-    result = psis!(vec(logw), only(reff); kwargs...)
+    result = psis!(vec(logw), reff; kwargs...)
     # unflatten log_weights
     return PSISResult(
         logw, result.reff, result.tail_length, result.tail_dist, result.normalized
@@ -257,6 +260,14 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
+    param_shape = map(length, param_axes)
+    if !(length(reff) == 1 || size(reff) == param_shape)
+        throw(
+            DimensionMismatch(
+                "`reff` has shape $(size(reff)) but must have same shape as the parameter axes $(param_shape)",
+            ),
+        )
+    end
 
     # allocate containers
     reffs = similar(logw, eltype(reff), param_axes)
