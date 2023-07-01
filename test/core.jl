@@ -116,7 +116,7 @@ end
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                r = psis(logr)
+                r = @inferred psis(logr)
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
@@ -260,7 +260,7 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = psis(logr, r_effs; normalize=false)
+            result = @inferred psis(logr, r_effs; normalize=false)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
@@ -295,7 +295,7 @@ end
                     Dimensions.Dim{:param}(param_names),
                 ),
             )
-            result = psis(logr)
+            result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
             for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
