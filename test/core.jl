@@ -184,6 +184,16 @@ end
 
     @testset "warnings" begin
         io = IOBuffer()
+        @testset for sz in (100, (100, 4, 3)), rbad in (-1, 0, NaN)
+            logr = randn(sz)
+            result = with_logger(SimpleLogger(io)) do
+                psis(logr, rbad)
+            end
+            msg = String(take!(io))
+            @test occursin("All values of `reff` should be finite, but some are not.", msg)
+        end
+
+        io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
             psis(logr; normalize=false)

@@ -222,6 +222,7 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
     if length(reff) != 1
         throw(DimensionMismatch("`reff` has length $(length(reff)) but must have length 1"))
     end
+    warn && check_reff(reff)
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
@@ -268,6 +269,7 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
             ),
         )
     end
+    check_reff(reff)
 
     # allocate containers
     reffs = similar(logw, eltype(reff), param_axes)
@@ -295,6 +297,14 @@ pareto_shape(dist::GeneralizedPareto) = dist.k
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
 pareto_shape(dists) = map(pareto_shape, dists)
 
+function check_reff(reff)
+    isvalid = all(reff) do r
+        return isfinite(r) && r > 0
+    end
+    isvalid || @warn "All values of `reff` should be finite, but some are not."
+    return nothing
+end
+
 check_pareto_shape(result::PSISResult) = check_pareto_shape(result.tail_dist)
 function check_pareto_shape(dist::GeneralizedPareto)
     k = pareto_shape(dist)
@@ -321,7 +331,12 @@ function check_pareto_shape(dists::AbstractArray{<:GeneralizedPareto})
     return nothing
 end
 
-tail_length(reff, S) = min(cld(S, 5), ceil(Int, 3 * sqrt(S / reff)))
+function tail_length(reff, S)
+    max_length = cld(S, 5)
+    (isfinite(reff) && reff > 0) || return max_length
+    min_length = ceil(Int, 3 * sqrt(S / reff))
+    return min(max_length, min_length)
+end
 
 function psis_tail!(logw, logμ)
     T = eltype(logw)
