@@ -90,7 +90,7 @@ using DimensionalData: Dimensions, DimArray
                   (0.5, 0.7]  okay       6 (20.0%)  92
                     (0.7, 1]  bad        4 (13.3%)  ——
                     (1, Inf)  very bad  17 (56.7%)  ——
-                          ——  missing    1 (3.3%)   ——"""
+                          ——  failed     1 (3.3%)   ——"""
         end
     end
 end
@@ -116,7 +116,7 @@ end
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                r = psis(logr)
+                r = @inferred psis(logr)
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
@@ -160,8 +160,8 @@ end
             psis(logr; normalize=false)
         end
         @test result.log_weights == logr
-        @test ismissing(result.tail_dist)
-        @test ismissing(result.pareto_shape)
+        @test isnan(result.tail_dist.σ)
+        @test isnan(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
             "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution.",
@@ -180,8 +180,8 @@ end
                 psis(logr; normalize=false)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
-            @test ismissing(result.tail_dist)
-            @test ismissing(result.pareto_shape)
+            @test isnan(result.tail_dist.σ)
+            @test isnan(result.pareto_shape)
             msg = String(take!(io))
             @test occursin("Warning: Tail contains non-finite values.", msg)
         end
@@ -226,7 +226,7 @@ end
         @test isempty(msg)
 
         tail_dist = [
-            missing,
+            PSIS.GeneralizedPareto(0, NaN, NaN),
             PSIS.GeneralizedPareto(0, 1, 0.69),
             PSIS.GeneralizedPareto(0, 1, 0.71),
             PSIS.GeneralizedPareto(0, 1, 1.1),
@@ -260,7 +260,7 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = psis(logr, r_effs; normalize=false)
+            result = @inferred psis(logr, r_effs; normalize=false)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_reff_$(r_eff)"
@@ -295,7 +295,7 @@ end
                     Dimensions.Dim{:param}(param_names),
                 ),
             )
-            result = psis(logr)
+            result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
             for k in (:pareto_shape, :tail_length, :tail_dist, :reff)

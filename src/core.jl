@@ -1,10 +1,10 @@
 # range, description, condition
 const SHAPE_DIAGNOSTIC_CATEGORIES = (
-    ("(-Inf, 0.5]", "good", x -> !ismissing(x) && x ≤ 0.5),
-    ("(0.5, 0.7]", "okay", x -> !ismissing(x) && 0.5 < x ≤ 0.7),
-    ("(0.7, 1]", "bad", x -> !ismissing(x) && 0.7 < x ≤ 1),
-    ("(1, Inf)", "very bad", x -> !ismissing(x) && x > 1),
-    ("——", "missing", ismissing),
+    ("(-Inf, 0.5]", "good", ≤(0.5)),
+    ("(0.5, 0.7]", "okay", x -> 0.5 < x ≤ 0.7),
+    ("(0.7, 1]", "bad", x -> 0.7 < x ≤ 1),
+    ("(1, Inf)", "very bad", >(1)),
+    ("——", "failed", isnan),
 )
 const BAD_SHAPE_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
 const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
@@ -117,8 +117,8 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         inds = findall(cond, k)
         count = length(inds)
         perc = 100 * count / npoints
-        ess_min = if count == 0 || desc == "too few draws"
-            missing
+        ess_min = if count == 0 || desc == "failed"
+            oftype(first(ess), NaN)
         else
             minimum(view(ess, inds))
         end
@@ -130,7 +130,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         "okay" => (; color=:yellow),
         "bad" => (bold=true, color=:light_red),
         "very bad" => (bold=true, color=:red),
-        "missing" => (),
+        "failed" => (; color=:red),
     )
 
     col_padding = " "
@@ -165,7 +165,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         format = formats[r.desc]
         printstyled(io, _pad_left(count, col_widths[3]); format...)
         printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
-        print(io, col_delim_tot, r.ess_min === missing ? "——" : floor(Int, r.ess_min))
+        print(io, col_delim_tot, isfinite(r.ess_min) ? floor(Int, r.ess_min) : "——")
     end
     return nothing
 end
@@ -218,6 +218,7 @@ function psis(logr, reff=1; kwargs...)
 end
 
 function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=true)
+    T = typeof(float(one(eltype(logw))))
     S = length(logw)
     reff_val = first(reff)
     M = tail_length(reff_val, S)
@@ -225,7 +226,8 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
         _maybe_log_normalize!(logw, normalize)
-        return PSISResult(logw, reff_val, M, missing, normalize)
+        tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
+        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -236,7 +238,8 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
         _maybe_log_normalize!(logw, normalize)
-        return PSISResult(logw, reff_val, M, missing, normalize)
+        tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
+        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
     end
     _, tail_dist = psis_tail!(logw_tail, logu)
     warn && check_pareto_shape(tail_dist)
@@ -259,7 +262,7 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     reffs = similar(logw, eltype(reff), param_axes)
     reffs .= reff
     tail_lengths = similar(logw, Int, param_axes)
-    tail_dists = similar(logw, Union{Missing,GeneralizedPareto{T}}, param_axes)
+    tail_dists = similar(logw, GeneralizedPareto{T}, param_axes)
 
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
@@ -277,7 +280,6 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     return result
 end
 
-pareto_shape(::Missing) = missing
 pareto_shape(dist::GeneralizedPareto) = dist.k
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
 pareto_shape(dists) = map(pareto_shape, dists)
@@ -292,18 +294,18 @@ function check_pareto_shape(dist::GeneralizedPareto)
     end
     return nothing
 end
-function check_pareto_shape(dists::AbstractArray{<:Union{Missing,GeneralizedPareto}})
-    nmissing = count(ismissing, dists)
-    ngt07 = count(x -> !(ismissing(x)) && pareto_shape(x) > 0.7, dists)
-    ngt1 = iszero(ngt07) ? ngt07 : count(x -> !(ismissing(x)) && pareto_shape(x) > 1, dists)
+function check_pareto_shape(dists::AbstractArray{<:GeneralizedPareto})
+    nnan = count(isnan ∘ pareto_shape, dists)
+    ngt07 = count(>(0.7) ∘ pareto_shape, dists)
+    ngt1 = iszero(ngt07) ? ngt07 : count(>(1) ∘ pareto_shape, dists)
     if ngt07 > ngt1
         @warn "$(ngt07 - ngt1) parameters had Pareto shape values 0.7 < k ≤ 1. $BAD_SHAPE_SUMMARY"
     end
     if ngt1 > 0
         @warn "$ngt1 parameters had Pareto shape values k > 1. $VERY_BAD_SHAPE_SUMMARY"
     end
-    if nmissing > 0
-        @warn "For $nmissing parameters, the generalized Pareto distribution could not be fit to the tail draws. Total number of draws should in general exceed 25, and the tail draws must be finite."
+    if nnan > 0
+        @warn "For $nnan parameters, the generalized Pareto distribution could not be fit to the tail draws. Total number of draws should in general exceed 25, and the tail draws must be finite."
     end
     return nothing
 end

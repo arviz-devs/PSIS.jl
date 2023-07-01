@@ -11,32 +11,34 @@ Given normalized weights ``w_{1:n}``, the ESS is estimated using the L2-norm of 
 
 where ``r_{\\mathrm{eff}}`` is the relative efficiency of the `log_weights`.
 
-    ess_is(result::PSISResult; bad_shape_missing=true)
+    ess_is(result::PSISResult; bad_shape_nan=true)
 
 Estimate ESS for Pareto-smoothed importance sampling.
 
 !!! note
 
     ESS estimates for Pareto shape values ``k > 0.7``, which are unreliable and misleadingly
-    high, are set to `missing`. To avoid this, set `bad_shape_missing=false`.
+    high, are set to `NaN`. To avoid this, set `bad_shape_nan=false`.
 """
 ess_is
 
-function ess_is(r::PSISResult; bad_shape_missing::Bool=true)
+function ess_is(r::PSISResult; bad_shape_nan::Bool=true)
     neff = ess_is(r.weights; reff=r.reff)
-    return _apply_missing(neff, r.tail_dist; bad_shape_missing=bad_shape_missing)
+    return _apply_nan(neff, r.tail_dist; bad_shape_nan=bad_shape_nan)
 end
 function ess_is(weights; reff=1)
     dims = _sample_dims(weights)
     return reff ./ dropdims(sum(abs2, weights; dims=dims); dims=dims)
 end
 
-function _apply_missing(neff, dist; bad_shape_missing)
-    return bad_shape_missing && pareto_shape(dist) > 0.7 ? missing : neff
+function _apply_nan(neff, dist; bad_shape_nan)
+    bad_shape_nan || return neff
+    k = pareto_shape(dist)
+    (isnan(k) || k > 0.7) && return oftype(neff, NaN)
+    return neff
 end
-_apply_missing(neff, ::Missing; kwargs...) = missing
-function _apply_missing(ess::AbstractArray, tail_dist::AbstractArray; kwargs...)
+function _apply_nan(ess::AbstractArray, tail_dist::AbstractArray; kwargs...)
     return map(ess, tail_dist) do essᵢ, tail_distᵢ
-        return _apply_missing(essᵢ, tail_distᵢ; kwargs...)
+        return _apply_nan(essᵢ, tail_distᵢ; kwargs...)
     end
 end
