@@ -20,14 +20,14 @@ using Test
     @test ess_is(result) ≈ ess_is(result.weights; reff=1.5)
 
     result = PSISResult(logw, 1.5, 20, PSIS.GeneralizedPareto(0.0, 1.0, 0.71), false)
-    @test ismissing(ess_is(result))
-    @test ess_is(result; bad_shape_missing=false) ≈ ess_is(result.weights; reff=1.5)
+    @test isnan(ess_is(result))
+    @test ess_is(result; bad_shape_nan=false) ≈ ess_is(result.weights; reff=1.5)
 
     logw = randn(100, 4, 3)
     tail_dists = [
         PSIS.GeneralizedPareto(0.0, 1.0, 0.69),
         PSIS.GeneralizedPareto(0.0, 1.0, 0.71),
-        missing,
+        PSIS.GeneralizedPareto(0.0, NaN, NaN),
     ]
     reff = [1.5, 0.8, 1.0]
     result = PSISResult(logw, reff, [20, 20, 20], tail_dists, false)
@@ -35,9 +35,8 @@ using Test
     @test ess isa Vector
     @test length(ess) == 3
     @test ess[1] ≈ ess_is(result.weights; reff=reff)[1]
-    @test ismissing(ess[2])
-    @test ismissing(ess[3])
-    ess = ess_is(result; bad_shape_missing=false)
-    @test ess[1:2] ≈ ess_is(result.weights; reff=reff)[1:2]
-    @test ismissing(ess[3])
+    @test isnan(ess[2])
+    @test isnan(ess[3])
+    ess = ess_is(result; bad_shape_nan=false)
+    @test ess ≈ ess_is(result.weights; reff=reff)[1:3]
 end
