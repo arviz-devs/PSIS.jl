@@ -3,6 +3,7 @@ module PSIS
 using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
 using Statistics: Statistics
+using StatsBase: StatsBase
 
 export PSISPlots
 export PSISResult
@@ -12,6 +13,7 @@ include("utils.jl")
 include("generalized_pareto.jl")
 include("core.jl")
 include("ess.jl")
+include("expectation.jl")
 include("recipes/plots.jl")
 
 end
