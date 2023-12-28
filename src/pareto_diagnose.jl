@@ -95,13 +95,13 @@ Compute diagnostics for Pareto-smoothed importance-weighted estimate of the expe
 
   - `diagnostics::NamedTuple`: A named tuple containing the following fields:
 
-    + `pareto_shape`: The Pareto shape parameter ``k``.
-    + `min_sample_size`: The minimum sample size needed for a reliable Pareto-smoothed
-      estimate (i.e. to have small probability of large error).
-    + `pareto_shape_threshold`: The Pareto shape ``k`` threshold needed for a reliable
-      Pareto-smoothed estimate (i.e. to have small probability of large error).
-    + `convergence_rate`: The relative convergence rate of the RMSE of the
-      Pareto-smoothed estimate.
+      + `pareto_shape`: The Pareto shape parameter ``k``.
+      + `min_sample_size`: The minimum sample size needed for a reliable Pareto-smoothed
+        estimate (i.e. to have small probability of large error).
+      + `pareto_shape_threshold`: The Pareto shape ``k`` threshold needed for a reliable
+        Pareto-smoothed estimate (i.e. to have small probability of large error).
+      + `convergence_rate`: The relative convergence rate of the RMSE of the
+        Pareto-smoothed estimate.
 """
 function pareto_diagnose(
     x::AbstractArray{<:Real},
