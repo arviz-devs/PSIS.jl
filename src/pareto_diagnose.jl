@@ -65,6 +65,80 @@ function pareto_diagnose(
     return diagnostics
 end
 
+"""
+    pareto_diagnose(x::AbstractArray, ratios::AbstractArray; kwargs...)
+
+Compute diagnostics for Pareto-smoothed importance-weighted estimate of the expectand ``x``.
+
+# Arguments
+
+  - `x`: An array of values of shape `(draws[, chains])`. If `log=true`, the values are
+    assumed to be on the log scale.
+  - `ratios`: An array of unnormalized importance ratios of shape
+    `(draws[, chains[, params...]])`. If `log_ratios=true`, the ratios are assumed to be on
+    the log scale.
+
+# Keywords
+
+  - `warn=false`: Whether to raise an informative warning if the diagnostics indicate that
+    the Pareto-smoothed estimate may be unreliable.
+  - `reff=1`: The relative efficiency of the importance weights on the original scale. Must
+    be either a scalar or an array of shape `(params...,)`.
+  - `log=false`: Whether `x` represents the log of the expectand.
+  - `log_ratios=true`: Whether `ratios` represents the log of the importance ratios.
+  - `diagnose_ratios=true`: Whether to compute diagnostics for the importance ratios.
+  - `tails`: Which tail(s) of `x * ratios` to use for the diagnostics. Valid values are
+    `:left`, `:right`, and `:both`. If `log=true`, only `:right` is valid. Defaults to
+    `:both` if `log=false`.
+
+# Returns
+
+  - `diagnostics::NamedTuple`: A named tuple containing the following fields:
+
+    + `pareto_shape`: The Pareto shape parameter ``k``.
+    + `min_sample_size`: The minimum sample size needed for a reliable Pareto-smoothed
+      estimate (i.e. to have small probability of large error).
+    + `pareto_shape_threshold`: The Pareto shape ``k`` threshold needed for a reliable
+      Pareto-smoothed estimate (i.e. to have small probability of large error).
+    + `convergence_rate`: The relative convergence rate of the RMSE of the
+      Pareto-smoothed estimate.
+"""
+function pareto_diagnose(
+    x::AbstractArray{<:Real},
+    ratios::AbstractArray{<:Real};
+    warn::Bool=false,
+    log::Bool=false,
+    log_ratios::Bool=true,
+    diagnose_ratios::Bool=true,
+    tails::Union{Tails,Symbol}=_default_tails(log),
+    reff=1,
+)
+    _tails = _validate_tails(tails)
+    expectand = _compute_expectand(x, ratios; log, log_ratios)
+    pareto_shape_numerator = _pareto_diagnose(expectand, reff, _tails, _as_scale(log))
+    if diagnose_ratios
+        pareto_shape_denominator = _pareto_diagnose(
+            ratios, reff, RightTail, _as_scale(log_ratios)
+        )
+        pareto_shape = max.(pareto_shape_numerator, pareto_shape_denominator)
+    else
+        pareto_shape = pareto_shape_numerator
+    end
+    sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
+    diagnostics = _compute_diagnostics(pareto_shape, sample_size)
+    # TODO: check diagnostics and raise warning
+    return diagnostics
+end
+
+function _compute_expectand(x, ratios; log, log_ratios)
+    log && log_ratios && return x .+ ratios
+    !log && !log_ratios && return x .* ratios
+    log && return x .+ Base.log.(ratios)
+    dims = _param_dims(ratios)
+    # scale ratios to maximum of 1 to reduce numerical issues
+    return x .* exp.(ratios .- dropdims(maximum(ratios; dims); dims))
+end
+
 function _pareto_diagnose(x::AbstractArray, reff, tails::Tails, scale)
     tail_dist = _fit_tail_dist(x, reff, tails, scale)
     sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
