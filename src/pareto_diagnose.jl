@@ -56,10 +56,9 @@ function pareto_diagnose(
     if log && _tails !== RightTail
         throw(ArgumentError("log can only be true when tails=:right"))
     end
+    pareto_shape = _pareto_diagnose(x, reff, _tails, _as_scale(log))
     sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
-    if _tails === BothTails
-    end
-    diagnostics = _pareto_diagnose(x, reff, _tails, _as_scale(log))
+    diagnostics = _compute_diagnostics(pareto_shape, sample_size)
     if warn
         # TODO: check diagnostics and raise warning
     end
