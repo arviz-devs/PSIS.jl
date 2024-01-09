@@ -14,7 +14,10 @@ using RecipesBase: RecipesBase
 
 Plot shape parameters of fitted Pareto tail distributions for diagnosing convergence.
 
-`values` may be either a vector of Pareto shape parameters or a [`PSIS.PSISResult`](@ref).
+`values` may be:
+- a vector of Pareto shape parameters
+- a [`PSIS.PSISResult`](@ref)
+- a [`PSIS.ParetoDiagnostics`](@ref)
 
 If `showlines==true`, horizontal lines indicating relevant Pareto shape thresholds are
 drawn. See [`PSIS.PSISResult`](@ref) for an explanation of the thresholds.
@@ -64,17 +67,21 @@ RecipesBase.@recipe function f(plt::ParetoShapePlot; showlines=false)
     yguide --> "Pareto shape"
     seriestype --> :scatter
     arg = first(plt.args)
-    k = arg isa PSIS.PSISResult ? PSIS.pareto_shape(arg) : arg
-    return (PSIS.as_array(PSIS.missing_to_nan(k)),)
+    k = _pareto_shape(arg)
+    return (vec(PSIS.as_array(PSIS.missing_to_nan(k))),)
 end
 
+_pareto_shape(r::PSIS.PSISResult) = PSIS.pareto_shape(r.diagnostics)
+_pareto_shape(d::PSIS.ParetoDiagnostics) = PSIS.pareto_shape(d)
+_pareto_shape(k) = k
+
 # plot PSISResult using paretoshapeplot if seriestype not specified
-RecipesBase.@recipe function f(result::PSISResult)
+RecipesBase.@recipe function f(r::Union{PSIS.PSISResult,PSIS.ParetoDiagnostics})
     if haskey(plotattributes, :seriestype)
-        k = PSIS.as_array(PSIS.missing_to_nan(PSIS.pareto_shape(result)))
+        k = PSIS.as_array(PSIS.missing_to_nan(_pareto_shape(r)))
         return (k,)
     else
-        return ParetoShapePlot((result,))
+        return ParetoShapePlot((r,))
     end
 end
 
