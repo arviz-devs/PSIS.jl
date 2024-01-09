@@ -24,7 +24,13 @@ Estimate ESS for Pareto-smoothed importance sampling.
 ess_is
 
 function ess_is(r::PSISResult; bad_shape_nan::Bool=true)
-    ess = ess_is(r.weights; reff=r.reff)
+    log_weights = r.log_weights
+    if r.normalized
+        weights = exp.(log_weights)
+    else
+        weights = LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
+    end
+    ess = ess_is(weights; reff=r.reff)
     diagnostics = r.diagnostics
     khat = diagnostics.pareto_shape
     khat_thresh = diagnostics.pareto_shape_threshold
