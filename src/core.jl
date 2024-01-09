@@ -170,8 +170,6 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     return nothing
 end
 
-_pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
-_pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
@@ -293,9 +291,7 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     return result
 end
 
-pareto_shape(dist::GeneralizedPareto) = dist.k
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
-pareto_shape(dists) = map(pareto_shape, dists)
 
 function check_reff(reff)
     isvalid = all(reff) do r
