@@ -24,7 +24,7 @@ _sample_size(x::AbstractArray) = prod(Base.Fix1(size, x), _sample_dims(x))
 # dimension corresponding to parameters
 _param_dims(x::AbstractArray) = ntuple(i -> i + 2, max(0, ndims(x) - 2))
 
-_param_sizes(x::AbstractArray) = mal(Base.Fix1(size, x), _param_dims(x))
+_param_sizes(x::AbstractArray) = map(Base.Fix1(size, x), _param_dims(x))
 
 # axes corresponding to parameters
 _param_axes(x::AbstractArray) = map(Base.Fix1(axes, x), _param_dims(x))
