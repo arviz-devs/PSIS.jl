@@ -8,9 +8,9 @@ using Printf: @sprintf
 using Statistics: Statistics
 
 export PSISPlots
-export PSISResult
-export psis, psis!, ess_is
-export pareto_diagnose
+export ParetoDiagnostics, PSISResult
+export pareto_diagnose, pareto_smooth, psis, psis!
+export check_pareto_diagnostics, ess_is
 
 include("utils.jl")
 include("generalized_pareto.jl")
