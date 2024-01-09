@@ -1,9 +1,29 @@
 """
     ParetoDiagnostics
 
-Diagnostic information for Pareto-smoothed importance sampling.[^VehtariSimpson2021]
+Diagnostic information for Pareto-smoothed importance sampling.
 
 $FIELDS
+
+# Diagnostics
+
+The `pareto_shape` parameter ``k`` of the generalized Pareto distribution when positive
+indicates the inverse of the number of finite moments of the distribution. Its estimate
+``\\hat{k}`` from the tail(s) can be used to diagnose reliability and convergence of
+estimates using [^VehtariSimpson2021].
+
+  - if ``\\hat{k} ≤ 0.5``, then PSIS behaves like the importance ratios have finite
+    variance, the resulting estimate will be accurate, and the converge rate is
+    ``S^{−1/2}``.
+  - if ``0.5 < \\hat{k} \\lessim 0.7, then the variance is infinite and plain IS can behave
+    poorly. PSIS works well in this regime, but the convergence rate is between ``S^{−1/2}``
+    and ``S^{−3/10}``.
+  - if ``\\hat{k} \\gtsim k_\\mathrm{threshold}``, then the Pareto smoothed estimate is not
+    reliable. It may help to increase the sample size.
+  - if ``\\hat{k} \\gtsim 0.7``, it quickly becomes too expensive to get an accurate
+    estimate. Importance sampling is not recommended.
+
+See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.
