@@ -28,9 +28,7 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     ndraws = size(log_weights, 1)
     nchains = size(log_weights, 2)
     npoints = prod(_param_sizes(log_weights))
-    println(
-        io, "PSISResult with $ndraws draws, $nchains chains, and $npoints parameters"
-    )
+    println(io, "PSISResult with $ndraws draws, $nchains chains, and $npoints parameters")
     return _print_pareto_shape_summary(io, r; newline_at_end=false)
 end
 
@@ -61,6 +59,8 @@ pareto_shape(r::PSISResult) = pareto_shape(r.diagnostics)
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
 
+Internally the function calls [`pareto_smooth`](@ref).
+
 # Arguments
 
   - `log_ratios`: an array of logarithms of importance ratios, with size
@@ -80,9 +80,6 @@ Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2
 # Returns
 
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
-
-A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
-details and [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
 [^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
     Pareto smoothed importance sampling.

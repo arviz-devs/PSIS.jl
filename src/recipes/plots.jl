@@ -15,9 +15,10 @@ using RecipesBase: RecipesBase
 Plot shape parameters of fitted Pareto tail distributions for diagnosing convergence.
 
 `values` may be:
-- a vector of Pareto shape parameters
-- a [`PSIS.PSISResult`](@ref)
-- a [`PSIS.ParetoDiagnostics`](@ref)
+
+  - a vector of Pareto shape parameters
+  - a [`PSIS.PSISResult`](@ref)
+  - a [`PSIS.ParetoDiagnostics`](@ref)
 
 If `showlines==true`, horizontal lines indicating relevant Pareto shape thresholds are
 drawn. See [`PSIS.PSISResult`](@ref) for an explanation of the thresholds.
