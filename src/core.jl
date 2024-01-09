@@ -327,13 +327,6 @@ function check_pareto_shape(dists::AbstractArray{<:GeneralizedPareto})
     return nothing
 end
 
-function tail_length(reff, S)
-    max_length = cld(S, 5)
-    (isfinite(reff) && reff > 0) || return max_length
-    min_length = ceil(Int, 3 * sqrt(S / reff))
-    return min(max_length, min_length)
-end
-
 function psis_tail!(logw, logμ)
     T = eltype(logw)
     logw_max = logw[end]

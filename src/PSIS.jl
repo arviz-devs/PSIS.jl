@@ -14,6 +14,7 @@ export pareto_diagnose
 
 include("utils.jl")
 include("generalized_pareto.jl")
+include("tails.jl")
 include("diagnostics.jl")
 include("pareto_diagnose.jl")
 include("core.jl")
