@@ -9,10 +9,15 @@ $FIELDS
     Pareto smoothed importance sampling.
     [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
 """
-struct PSISResult{T,W<:AbstractArray{T},R,D}
+struct PSISResult{T,W<:AbstractArray{T},R,D<:ParetoDiagnostics}
+    "Pareto-smoothed log-weights. Log-normalized if `normalized=true`."
     log_weights::W
+    "the relative efficiency, i.e. the ratio of the effective sample size of the unsmoothed
+    importance ratios and the actual sample size."
     reff::R
+    "whether `log_weights` are log-normalized along the sample dimensions."
     normalized::Bool
+    "diagnostics for the Pareto-smoothing."
     diagnostics::D
 end
 
@@ -48,21 +53,19 @@ function Base.getproperty(r::PSISResult, k::Symbol)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
-    npoints = r.nparams
-    nchains = r.nchains
+    log_weights = r.log_weights
+    ndraws = size(log_weights, 1)
+    nchains = size(log_weights, 2)
+    npoints = prod(_param_sizes(log_weights))
     println(
-        io, "PSISResult with $(r.ndraws) draws, $nchains chains, and $npoints parameters"
+        io, "PSISResult with $ndraws draws, $nchains chains, and $npoints parameters"
     )
     return _print_pareto_shape_summary(io, r; newline_at_end=false)
 end
 
-function pareto_shape_summary(r::PSISResult; kwargs...)
-    return _print_pareto_shape_summary(stdout, r; kwargs...)
-end
-
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_shape(r))
-    sample_size = r.ndraws * r.nchains
+    sample_size = _sample_size(r.log_weights)
     ess = as_array(ess_is(r))
     diag = _compute_diagnostics(k, sample_size)
 
