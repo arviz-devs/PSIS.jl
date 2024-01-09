@@ -1,6 +1,9 @@
 module PSIS
 
+using DocStringExtensions: FIELDS
+using IntervalSets: IntervalSets
 using LogExpFunctions: LogExpFunctions
+using PrettyTables: PrettyTables
 using Printf: @sprintf
 using Statistics: Statistics
 
