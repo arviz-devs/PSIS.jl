@@ -168,9 +168,11 @@ function _print_pareto_diagnostics_summary(io::IO, _rows, npoints; kwargs...)
     rows = filter(r -> r.count > 0, _rows)
     header = ["", "", "Count"]
     alignment = [:r, :l, :l]
+    alignment_anchor_regex = Dict(3 => [r"\s"])
     if length(first(rows)) > 3
         push!(header, "Min. ESS")
-        push!(alignment, :r)
+        push!(alignment, :l)
+        alignment_anchor_regex[4] = [r"\d"]
     end
     formatters = (
         (v, i, j) -> j == 2 ? replace(string(v), '_' => " ") : v,
@@ -196,11 +198,12 @@ function _print_pareto_diagnostics_summary(io::IO, _rows, npoints; kwargs...)
         rows;
         header,
         alignment,
-        alignment_anchor_regex=Dict(3 => [r"\s"]),
+        alignment_anchor_regex,
         hlines=:none,
         vlines=:none,
         formatters,
         highlighters,
+        title="Pareto shape (k) diagnostic values:",
         kwargs...,
     )
     return nothing
