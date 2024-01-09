@@ -1,22 +1,7 @@
-@enum Tails LeftTail RightTail BothTails
-const TAIL_OPTIONS = (left=LeftTail, right=RightTail, both=BothTails)
-
-_validate_tails(tails::Tails) = tails
-function _validate_tails(tails::Symbol)
-    if !haskey(TAIL_OPTIONS, tails)
-        throw(ArgumentError("invalid tails: $tails. Valid values are :left, :right, :both"))
-    end
-    return TAIL_OPTIONS[tails]
-end
-
-_default_tails(log::Bool) = log ? RightTail : BothTails
-
-_as_scale(log::Bool) = log ? Base.log : identity
-
 """
-    pareto_diagnose(x::AbstractArray; warn=false, reff=1, log=false[, tails::Symbol])
+    pareto_diagnose(x::AbstractArray; kwargs...)
 
-Compute diagnostics for Pareto-smoothed estimate of the expectand ``x``.
+Compute diagnostics for Pareto-smoothed estimate of the expectand `x`.
 
 # Arguments
 
@@ -24,18 +9,17 @@ Compute diagnostics for Pareto-smoothed estimate of the expectand ``x``.
 
 # Keywords
 
-  - `warn=false`: Whether to raise an informative warning if the diagnostics indicate that the
-    Pareto-smoothed estimate may be unreliable.
-  - `reff=1`: The relative efficiency of the importance weights. Must be either a scalar or an
-    array of shape `(params...,)`.
-  - `log=false`: Whether `x` represents the log of the expectand. If `true`, the diagnostics
-    are computed on the original scale, taking care to avoid numerical overflow.
-  - `tails`: Which tail(s) to use for the diagnostics. Valid values are `:left`, `:right` and
-    `:both`. If `log=true`, only `:right` is valid. Defaults to `:both` if `log=false`.
+  - `reff=1`: The relative tail efficiency of `x`. Must be either a scalar or an array of
+    shape `(params...,)`.
+  - `is_log=false`: Whether `x` represents the log of the expectand. If `true`, the
+    diagnostics are computed on the original scale, taking care to avoid numerical overflow.
+  - `tails=:both`: Which tail(s) to diagnose. Valid values are `:left`, `:right`, and
+    `:both`. If `tails=:both`, diagnostic values correspond to the tail with the worst
+    properties.
 
 # Returns
 
-  - `diagnostics::NamedTuple`: A named tuple containing the following fields:
+  - `diagnostics::ParetoDiagnostics`: A named tuple containing the following fields:
 
       + `pareto_shape`: The Pareto shape parameter ``k``.
       + `min_sample_size`: The minimum sample size needed for a reliable Pareto-smoothed
@@ -46,54 +30,52 @@ Compute diagnostics for Pareto-smoothed estimate of the expectand ``x``.
         Pareto-smoothed estimate.
 """
 function pareto_diagnose(
-    x::AbstractArray{<:Real};
-    warn::Bool=false,
+    x::AbstractArray;
     reff=1,
-    log::Bool=false,
-    tails::Union{Tails,Symbol}=_default_tails(log),
+    is_log::Bool=false,
+    tails::Union{Tails,Symbol}=BothTails,
+    kind=Statistics.mean,
 )
-    _tails = _validate_tails(tails)
-    if log && _tails !== RightTail
-        throw(ArgumentError("log can only be true when tails=:right"))
-    end
-    pareto_shape = _pareto_diagnose(x, reff, _tails, _as_scale(log))
-    sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
+    # validate/format inputs
+    _tails = _standardize_tails(tails)
+    _check_requires_moments(kind)
+
+    # diagnose the unnormalized expectation
+    pareto_shape = _compute_pareto_shape(x, reff, _tails, kind, is_log)
+
+    # compute remaining diagnostics
+    sample_size = _sample_size(x)
     diagnostics = _compute_diagnostics(pareto_shape, sample_size)
-    if warn
-        # TODO: check diagnostics and raise warning
-    end
+
     return diagnostics
 end
 
 """
     pareto_diagnose(x::AbstractArray, ratios::AbstractArray; kwargs...)
 
-Compute diagnostics for Pareto-smoothed importance-weighted estimate of the expectand ``x``.
+Compute diagnostics for Pareto-smoothed importance-weighted estimate of the expectand `x`.
 
 # Arguments
 
-  - `x`: An array of values of shape `(draws[, chains])`. If `log=true`, the values are
-    assumed to be on the log scale.
+  - `x`: An array of values of shape `(draws[, chains[, params...]])`.
   - `ratios`: An array of unnormalized importance ratios of shape
-    `(draws[, chains[, params...]])`. If `log_ratios=true`, the ratios are assumed to be on
-    the log scale.
+    `(draws[, chains[, params...]])`.
 
 # Keywords
 
-  - `warn=false`: Whether to raise an informative warning if the diagnostics indicate that
-    the Pareto-smoothed estimate may be unreliable.
   - `reff=1`: The relative efficiency of the importance weights on the original scale. Must
     be either a scalar or an array of shape `(params...,)`.
-  - `log=false`: Whether `x` represents the log of the expectand.
-  - `log_ratios=true`: Whether `ratios` represents the log of the importance ratios.
+  - `is_log=false`: Whether `x` represents the log of the expectand.
+  - `is_ratios_log=true`: Whether `ratios` represents the log of the importance ratios.
   - `diagnose_ratios=true`: Whether to compute diagnostics for the importance ratios.
-  - `tails`: Which tail(s) of `x * ratios` to use for the diagnostics. Valid values are
-    `:left`, `:right`, and `:both`. If `log=true`, only `:right` is valid. Defaults to
-    `:both` if `log=false`.
+    This should only be set to `false` if the ratios are by construction normalized, as is
+    the case if they are are computed from already-normalized densities.
+  - `tails`: Which tail(s) of `x * ratios` to diagnose. Valid values are `:left`, `:right`,
+    and `:both`.
 
 # Returns
 
-  - `diagnostics::NamedTuple`: A named tuple containing the following fields:
+  - `diagnostics::ParetoDiagnostics`: A named tuple containing the following fields:
 
       + `pareto_shape`: The Pareto shape parameter ``k``.
       + `min_sample_size`: The minimum sample size needed for a reliable Pareto-smoothed
@@ -104,108 +86,116 @@ Compute diagnostics for Pareto-smoothed importance-weighted estimate of the expe
         Pareto-smoothed estimate.
 """
 function pareto_diagnose(
-    x::AbstractArray{<:Real},
+    x::AbstractArray,
     ratios::AbstractArray{<:Real};
-    warn::Bool=false,
-    log::Bool=false,
-    log_ratios::Bool=true,
+    is_log::Bool=false,
+    is_ratios_log::Bool=true,
     diagnose_ratios::Bool=true,
-    tails::Union{Tails,Symbol}=_default_tails(log),
+    tails::Union{Tails,Symbol}=BothTails,
+    kind=Statistics.mean,
     reff=1,
 )
-    _tails = _validate_tails(tails)
-    expectand = _compute_expectand(x, ratios; log, log_ratios)
-    pareto_shape_numerator = _pareto_diagnose(expectand, reff, _tails, _as_scale(log))
-    if diagnose_ratios
-        pareto_shape_denominator = _pareto_diagnose(
-            ratios, reff, RightTail, _as_scale(log_ratios)
-        )
-        pareto_shape = max.(pareto_shape_numerator, pareto_shape_denominator)
+
+    # validate/format inputs
+    _tails = _standardize_tails(tails)
+
+    # diagnose the unnormalized expectation
+    pareto_shape_numerator = if _requires_moments(kind)
+        _compute_pareto_shape(x, ratios, _tails, kind, is_log, is_ratios_log)
+    elseif diagnose_ratios
+        nothing
     else
-        pareto_shape = pareto_shape_numerator
+        throw(
+            ArgumentError(
+                "kind=$kind requires no moments. `diagnose_ratios` must be `true`."
+            ),
+        )
     end
-    sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
+
+    # diagnose the normalization term
+    pareto_shape_denominator = if diagnose_ratios
+        _compute_pareto_shape(ratios, reff, RightTail, Statistics.mean, is_ratios_log)
+    else
+        nothing
+    end
+
+    # compute the maximum of the Pareto shapes
+    pareto_shape = if pareto_shape_numerator === nothing
+        pareto_shape_denominator
+    elseif !diagnose_ratios
+        pareto_shape_numerator
+    else
+        max(pareto_shape_numerator, pareto_shape_denominator)
+    end
+
+    # compute remaining diagnostics
+    sample_size = _sample_size(x)
     diagnostics = _compute_diagnostics(pareto_shape, sample_size)
-    # TODO: check diagnostics and raise warning
+
     return diagnostics
 end
 
-function _compute_expectand(x, ratios; log, log_ratios)
-    log && log_ratios && return x .+ ratios
-    !log && !log_ratios && return x .* ratios
-    log && return x .+ Base.log.(ratios)
-    dims = _param_dims(ratios)
-    # scale ratios to maximum of 1 to reduce numerical issues
-    return x .* exp.(ratios .- dropdims(maximum(ratios; dims); dims))
-end
-
-function _pareto_diagnose(x::AbstractArray, reff, tails::Tails, scale)
-    tail_dist = _fit_tail_dist(x, reff, tails, scale)
-    sample_size = prod(map(Base.Fix1(size, x), _sample_dims(x)))
-    return _compute_diagnostics(pareto_shape(tail_dist), sample_size)
-end
-
-function _compute_diagnostics(pareto_shape, sample_size)
-    return (
-        pareto_shape,
-        min_sample_size=min_sample_size(pareto_shape),
-        pareto_shape_threshold=pareto_shape_threshold(sample_size),
-        convergence_rate=convergence_rate(pareto_shape, sample_size),
-    )
-end
-
-@inline function _fit_tail_dist(
-    x::AbstractArray,
-    reff::Union{Real,AbstractArray{<:Real}},
-    tails::Tails,
-    scale::Union{typeof(log),typeof(identity)},
-)
-    return map(_eachparamindex(x)) do i
-        reff_i = reff isa Real ? reff : _selectparam(reff, i)
-        return _fit_tail_dist(_selectparam(x, i), reff_i, tails, scale)
+# batch methods
+function _compute_pareto_shape(x::AbstractArray, reff, tails::Tails, kind, is_log::Bool)
+    return _map_params(x, reff) do x_i, reff_i
+        return _compute_pareto_shape(x_i, reff_i, tails, kind, is_log)
     end
 end
-function _fit_tail_dist(
+function _compute_pareto_shape(
+    x::AbstractArray, r::AbstractArray, tails::Tails, kind, is_x_log::Bool, is_r_log::Bool
+)
+    return _map_params(x, r) do x_i, r_i
+        return _compute_pareto_shape(x_i, r_i, tails, kind, is_x_log, is_r_log)
+    end
+end
+# single methods
+function _compute_pareto_shape(
+    x::AbstractVecOrMat, reff::Real, tails::Tails, kind, is_log::Bool
+)
+    expectand_proxy = _expectand_proxy(kind, x, !is_log, is_log, is_log)
+    return _compute_pareto_shape(expectand_proxy, reff, tails)
+end
+Base.@constprop :aggressive function _compute_pareto_shape(
     x::AbstractVecOrMat,
-    reff::Real,
+    r::AbstractVecOrMat,
     tails::Tails,
-    scale::Union{typeof(log),typeof(identity)},
+    kind,
+    is_x_log::Bool,
+    is_r_log::Bool,
 )
+    expectand_proxy = _expectand_proxy(kind, x, r, is_x_log, is_r_log)
+    return _compute_pareto_shape(expectand_proxy, true, tails)
+end
+
+# base method
+function _compute_pareto_shape(x::AbstractVecOrMat, reff::Real, tails::Tails)
     S = length(x)
-    M = tail_length(reff, S)
+    M = _tail_length(reff, S, tails)
+    T = float(eltype(x))
+    if M < 5
+        @warn "Tail must contain at least 5 draws. Generalized Pareto distribution cannot be reliably fit."
+        return convert(T, NaN)
+    end
     x_tail = similar(vec(x), M)
+    return _compute_pareto_shape!(x_tail, x, tails)
+end
+
+function _compute_pareto_shape!(x_tail::AbstractVector, x::AbstractVecOrMat, tails::Tails)
     _tails = tails === BothTails ? (LeftTail, RightTail) : (tails,)
-    tail_dists = map(_tails) do tail
-        _, cutoff = _get_tail!(x_tail, vec(x), tail)
-        _shift_tail!(x_tail, cutoff, tail, scale)
-        return _fit_tail_dist(x_tail)
+    return maximum(_tails) do tail
+        tail_dist = _fit_tail_dist!(x_tail, x, tail)
+        return pareto_shape(tail_dist)
     end
-    tail_dist = argmax(pareto_shape, tail_dists)
-    return tail_dist
 end
-_fit_tail_dist(x_tail::AbstractVector) = fit_gpd(x_tail; prior_adjusted=true, sorted=true)
 
-function _get_tail!(x_tail::AbstractVector, x::AbstractVector, tail::Tails)
-    S = length(x)
+function _fit_tail_dist!(x_tail, x, tail)
     M = length(x_tail)
-    ind_offset = firstindex(x) - 1
-    perm = partialsortperm(x, ind_offset .+ ((S - M):S); rev=tail === LeftTail)
-    cutoff = x[first(perm)]
-    tail_inds = @view perm[(firstindex(perm) + 1):end]
-    copyto!(x_tail, @views x[tail_inds])
-    return x_tail, cutoff
-end
-
-function _shift_tail!(
-    x_tail, cutoff, tails::Tails, scale::Union{typeof(log),typeof(identity)}
-)
-    if scale === log
-        x_tail_max = x_tail[end]
-        @. x_tail = exp(x_tail - x_tail_max) - exp(cutoff - x_tail_max)
-    elseif tails === LeftTail
-        @. x_tail = cutoff - x_tail
-    else
-        @. x_tail = x_tail - cutoff
+    x_tail_view, cutoff = _tail_and_cutoff(vec(x), M, tail)
+    if any(!isfinite, x_tail_view)
+        @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
+        T = float(eltype(x_tail))
+        return GeneralizedPareto(zero(T), convert(T, NaN), convert(T, NaN))
     end
-    return x_tail
+    _shift_tail!(x_tail, x_tail_view, cutoff, tail)
+    return fit_gpd(x_tail; prior_adjusted=true, sorted=true)
 end
