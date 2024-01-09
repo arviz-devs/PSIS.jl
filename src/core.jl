@@ -5,9 +5,7 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
 $FIELDS
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+See [`ParetoDiagnose`](@ref) for a description of the diagnostics.
 """
 struct PSISResult{T,W<:AbstractArray{T},R,D<:ParetoDiagnostics}
     "Pareto-smoothed log-weights. Log-normalized if `normalized=true`."
