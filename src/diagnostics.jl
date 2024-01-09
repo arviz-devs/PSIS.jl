@@ -42,6 +42,8 @@ struct ParetoDiagnostics{TK,TKM,TS,TR}
     convergence_rate::TR
 end
 
+pareto_shape(diagnostics::ParetoDiagnostics) = diagnostics.pareto_shape
+
 pareto_shape_threshold(sample_size::Real) = 1 - inv(log10(sample_size))
 
 function min_sample_size(pareto_shape::Real)
