@@ -17,28 +17,31 @@ Estimate ESS for Pareto-smoothed importance sampling.
 
 !!! note
 
-    ESS estimates for Pareto shape values ``k > 0.7``, which are unreliable and misleadingly
-    high, are set to `NaN`. To avoid this, set `bad_shape_nan=false`.
+    ESS estimates for Pareto shape values ``k > k_\\mathrm{threshold}``, which are
+    unreliable and misleadingly high, are set to `NaN`. To avoid this, set
+    `bad_shape_nan=false`.
 """
 ess_is
 
 function ess_is(r::PSISResult; bad_shape_nan::Bool=true)
-    neff = ess_is(r.weights; reff=r.reff)
-    return _apply_nan(neff, r.tail_dist; bad_shape_nan=bad_shape_nan)
+    ess = ess_is(r.weights; reff=r.reff)
+    diagnostics = r.diagnostics
+    khat = diagnostics.pareto_shape
+    khat_thresh = diagnostics.pareto_shape_threshold
+    return _apply_nan(ess, khat; khat_thresh, bad_shape_nan=bad_shape_nan)
 end
 function ess_is(weights; reff=1)
     dims = _sample_dims(weights)
     return reff ./ dropdims(sum(abs2, weights; dims=dims); dims=dims)
 end
 
-function _apply_nan(neff, dist; bad_shape_nan)
-    bad_shape_nan || return neff
-    k = pareto_shape(dist)
-    (isnan(k) || k > 0.7) && return oftype(neff, NaN)
-    return neff
+function _apply_nan(ess::Real, khat::Real; khat_thresh::Real, bad_shape_nan)
+    bad_shape_nan || return ess
+    (isnan(khat) || khat > khat_thresh) && return oftype(ess, NaN)
+    return ess
 end
-function _apply_nan(ess::AbstractArray, tail_dist::AbstractArray; kwargs...)
-    return map(ess, tail_dist) do essᵢ, tail_distᵢ
-        return _apply_nan(essᵢ, tail_distᵢ; kwargs...)
+function _apply_nan(ess::AbstractArray, khat::AbstractArray; kwargs...)
+    return map(ess, khat) do essᵢ, khatᵢ
+        return _apply_nan(essᵢ, khatᵢ; kwargs...)
     end
 end
