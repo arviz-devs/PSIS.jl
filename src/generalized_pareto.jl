@@ -30,6 +30,9 @@ struct GeneralizedPareto{T}
 end
 GeneralizedPareto(μ, σ, k) = GeneralizedPareto(Base.promote(μ, σ, k)...)
 
+pareto_shape(dist::GeneralizedPareto) = dist.k
+pareto_shape(dists) = map(pareto_shape, dists)
+
 function quantile(d::GeneralizedPareto{T}, p::Real) where {T<:Real}
     nlog1pp = -log1p(-p * one(T))
     k = d.k
