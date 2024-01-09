@@ -174,7 +174,7 @@ function _print_pareto_diagnostics_summary(io::IO, _rows, npoints; kwargs...)
     if length(first(rows)) > 3
         push!(header, "Min. ESS")
         push!(alignment, :l)
-        alignment_anchor_regex[4] = [r"\d"]
+        alignment_anchor_regex[4] = [r"[\d—]$"]
     end
     formatters = (
         (v, i, j) -> j == 2 ? replace(string(v), '_' => " ") : v,
