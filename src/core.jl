@@ -23,35 +23,6 @@ end
 
 check_pareto_diagnostics(r::PSISResult) = check_pareto_diagnostics(r.diagnostics)
 
-function Base.propertynames(r::PSISResult)
-    return [fieldnames(typeof(r))..., :weights, :nparams, :ndraws, :nchains, :pareto_shape]
-end
-
-function Base.getproperty(r::PSISResult, k::Symbol)
-    if k === :weights
-        log_weights = getfield(r, :log_weights)
-        getfield(r, :normalized) && return exp.(log_weights)
-        return LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
-    elseif k === :nparams
-        log_weights = getfield(r, :log_weights)
-        return if ndims(log_weights) == 1
-            1
-        else
-            param_dims = _param_dims(log_weights)
-            prod(Base.Fix1(size, log_weights), param_dims; init=1)
-        end
-    elseif k === :ndraws
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 1)
-    elseif k === :nchains
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 2)
-    end
-    k === :pareto_shape && return pareto_shape(getfield(r, :diagnostics))
-    k === :ess && return ess_is(r)
-    return getfield(r, k)
-end
-
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     log_weights = r.log_weights
     ndraws = size(log_weights, 1)
