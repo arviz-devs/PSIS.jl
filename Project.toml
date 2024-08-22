@@ -1,7 +1,7 @@
 name = "PSIS"
 uuid = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
 authors = ["Seth Axen <seth.axen@gmail.com> and contributors"]
-version = "0.9.4"
+version = "0.9.5"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
@@ -23,14 +23,14 @@ PSISStatsBaseExt = ["StatsBase"]
 
 [compat]
 Compat = "3, 4"
-DimensionalData = "0.24"
+DimensionalData = "0.24.2"
 Distributions = "0.25.81"
 DocStringExtensions = "0.9"
 IntervalSets = "0.7"
-JLD2 = "0.4"
+JLD2 = "0.4.28"
 LinearAlgebra = "1.6"
-LogExpFunctions = "0.2.0, 0.3"
-Plots = "1"
+LogExpFunctions = "0.3.3"
+Plots = "1.10.1"
 PrettyTables = "2"
 Printf = "1.6"
 RecipesBase = "1"
