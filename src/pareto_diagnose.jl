@@ -155,7 +155,7 @@ function _compute_pareto_shape(
     expectand_proxy = _expectand_proxy(kind, x, !is_log, is_log, is_log)
     return _compute_pareto_shape(expectand_proxy, reff, tails)
 end
-Base.@constprop :aggressive function _compute_pareto_shape(
+@constprop :aggressive function _compute_pareto_shape(
     x::AbstractVecOrMat,
     r::AbstractVecOrMat,
     tails::Tails,

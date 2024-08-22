@@ -1,11 +1,14 @@
 module PSIS
 
+using Compat: @constprop
 using DocStringExtensions: FIELDS
 using IntervalSets: IntervalSets
 using LogExpFunctions: LogExpFunctions
 using PrettyTables: PrettyTables
 using Printf: @sprintf
 using Statistics: Statistics
+
+const EXTENSIONS_SUPPORTED = isdefined(Base, :get_extension)
 
 export PSISPlots
 export ParetoDiagnostics, PSISResult
@@ -23,9 +26,12 @@ include("core.jl")
 include("ess.jl")
 include("recipes/plots.jl")
 
-@static if !isdefined(Base, :get_extension)
+if !EXTENSIONS_SUPPORTED
     using Requires: @require
-    function __init__()
+end
+
+function __init__()
+    @static if EXTENSIONS_SUPPORTED
         @require StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91" begin
             include("../ext/PSISStatsBaseExt.jl")
         end
