@@ -53,19 +53,34 @@ function _pareto_smooth(x, reff, tails, is_log)
 end
 
 function _pareto_smooth!(x::AbstractArray, reff, tails::Tails, is_log::Bool)
-    return _map_params(x, reff) do x_i, reff_i
-        return _pareto_smooth!(x_i, reff_i, tails, is_log)
-    end
+    # workaround for mysterious type-non-inferrability for 3d arrays
+    T = typeof(float(one(eltype(x))))
+    pareto_shape = similar(x, T, _param_axes(x))
+    copyto!(
+        pareto_shape,
+        _map_params(x, reff) do x_i, reff_i
+            _pareto_smooth!(x_i, reff_i, tails, is_log)
+        end,
+    )
+    return pareto_shape
 end
 function _pareto_smooth!(x::AbstractVecOrMat, reff::Real, tails::Tails, is_log::Bool)
-    S = length(x)
-    M = _tail_length(reff, S, tails)
-    _tails = tails === BothTails ? (LeftTail, RightTail) : (tails,)
-    return maximum(_tails) do tail
-        x_tail, cutoff = _tail_and_cutoff(vec(x), M, tail)
-        dist = _fit_tail_dist_and_smooth!(x_tail, cutoff, tail, is_log)
-        return pareto_shape(dist)
+    M = _tail_length(reff, length(x), tails)
+    if tails == BothTails
+        return max(
+            _pareto_smooth_tail_of_length!(x, M, LeftTail, is_log),
+            _pareto_smooth_tail_of_length!(x, M, RightTail, is_log),
+        )
+    else
+        return _pareto_smooth_tail_of_length!(x, M, tails, is_log)
     end
+end
+
+# this function barrier is necessary to avoid type instability
+function _pareto_smooth_tail_of_length!(x, tail_length, tail, is_log)
+    x_tail, cutoff = _tail_and_cutoff(vec(x), tail_length, tail)
+    dist = _fit_tail_dist_and_smooth!(x_tail, cutoff, tail, is_log)
+    return pareto_shape(dist)
 end
 
 function _fit_tail_dist_and_smooth!(x_tail, cutoff, tail, is_log)
