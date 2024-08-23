@@ -31,7 +31,7 @@ if !EXTENSIONS_SUPPORTED
 end
 
 function __init__()
-    @static if EXTENSIONS_SUPPORTED
+    @static if !EXTENSIONS_SUPPORTED
         @require StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91" begin
             include("../ext/PSISStatsBaseExt.jl")
         end
