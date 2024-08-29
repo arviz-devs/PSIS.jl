@@ -1,7 +1,7 @@
 using PSIS
 using Test
-using Random
 using ReferenceTests
+using StableRNGs
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf
 using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
@@ -50,7 +50,7 @@ using DimensionalData: Dimensions, DimArray
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
-            rng = MersenneTwister(42)
+            rng = StableRNG(42)
             x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
             log_ratios[1, 1, 1] = NaN
@@ -84,7 +84,7 @@ end
 #             k_exp = 1 - θ
 #             for sz in ((100_000,), (100_000, 4), (100_000, 4, 5))
 #                 dims = length(sz) < 3 ? Colon() : 1:(length(sz) - 1)
-#                 rng = MersenneTwister(42)
+#                 rng = StableRNG(42)
 #                 x = rand(rng, proposal, sz)
 #                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
@@ -198,7 +198,7 @@ end
 #         end
 
 #         io = IOBuffer()
-#         rng = MersenneTwister(42)
+#         rng = StableRNG(83)
 #         x = rand(rng, Exponential(50), 1_000)
 #         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
 #         result = with_logger(SimpleLogger(io)) do
@@ -262,7 +262,7 @@ end
 #     end
 
 #     @testset "test against reference values" begin
-#         rng = MersenneTwister(42)
+#         rng = StableRNG(42)
 #         proposal = Normal()
 #         target = Cauchy()
 #         sz = (5, 1_000, 4)
