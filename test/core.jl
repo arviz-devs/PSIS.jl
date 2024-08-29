@@ -1,7 +1,7 @@
 using PSIS
 using Test
-using Random
 using ReferenceTests
+using StableRNGs
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf
 using LogExpFunctions: logsumexp, softmax
 using Logging: SimpleLogger, with_logger
@@ -77,7 +77,7 @@ using DimensionalData: Dimensions, DimArray
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
-            rng = MersenneTwister(42)
+            rng = StableRNG(42)
             x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
             reff = [100; ones(29)]
@@ -85,12 +85,11 @@ using DimensionalData: Dimensions, DimArray
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto shape (k) diagnostic values:
-                                        Count       Min. ESS
-                 (-Inf, 0.5]  good       2 (6.7%)   98
-                  (0.5, 0.7]  okay       6 (20.0%)  92
-                    (0.7, 1]  bad        4 (13.3%)  ——
-                    (1, Inf)  very bad  17 (56.7%)  ——
-                          ——  failed     1 (3.3%)   ——"""
+                                       Count       Min. ESS
+                 (0.5, 0.7]  okay       2 (6.7%)   99
+                   (0.7, 1]  bad        2 (6.7%)   ——
+                   (1, Inf)  very bad  25 (83.3%)  ——
+                         ——  failed     1 (3.3%)   ——"""
         end
     end
 end
@@ -112,7 +111,7 @@ end
             k_exp = 1 - θ
             for sz in ((100_000,), (100_000, 4), (100_000, 4, 5))
                 dims = length(sz) < 3 ? Colon() : 1:(length(sz) - 1)
-                rng = MersenneTwister(42)
+                rng = StableRNG(42)
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
@@ -226,7 +225,7 @@ end
         end
 
         io = IOBuffer()
-        rng = MersenneTwister(42)
+        rng = StableRNG(83)
         x = rand(rng, Exponential(50), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
         result = with_logger(SimpleLogger(io)) do
@@ -236,7 +235,7 @@ end
         @test result.pareto_shape > 0.7
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape k = 0.73 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
+            "Warning: Pareto shape k = 0.72 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
         )
 
         io = IOBuffer()
@@ -290,7 +289,7 @@ end
     end
 
     @testset "test against reference values" begin
-        rng = MersenneTwister(42)
+        rng = StableRNG(42)
         proposal = Normal()
         target = Cauchy()
         sz = (5, 1_000, 4)
