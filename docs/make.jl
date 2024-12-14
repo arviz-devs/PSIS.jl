@@ -16,7 +16,10 @@ makedocs(;
     authors="Seth Axen <seth.axen@gmail.com> and contributors",
     repo=Remotes.GitHub("arviz-devs", "PSIS.jl"),
     sitename="PSIS.jl",
-    format=Documenter.HTML(; prettyurls=get(ENV, "CI", "false") == "true", assets=String[]),
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        assets=[joinpath("assets", "citations.css")],
+    ),
     pages=[
         "Home" => "index.md",
         "Plotting" => "plotting.md",
