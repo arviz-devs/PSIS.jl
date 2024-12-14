@@ -4,7 +4,7 @@ CurrentModule = PSIS
 
 # PSIS
 
-PSIS.jl implements the Pareto smoothed importance sampling (PSIS) algorithm from [^VehtariSimpson2021].
+PSIS.jl implements the Pareto smoothed importance sampling (PSIS) algorithm from [VehtariSimpson2021](@citet).
 
 Given a set of importance weights used in some estimator, PSIS both improves the reliability of the estimates by smoothing the importance weights and acts as a diagnostic of the reliability of the estimates.
 
@@ -35,7 +35,3 @@ As indicated by the warnings, this is a poor choice of a proposal distribution, 
 
 When running PSIS with many parameters, it is useful to plot the Pareto shape values to diagnose convergence.
 See [Plotting PSIS results](@ref) for examples.
-
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
