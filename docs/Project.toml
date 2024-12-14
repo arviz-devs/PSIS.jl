@@ -9,7 +9,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-Distributions = "0.23.2, 0.24, 0.25"
+Distributions = "0.25.81"
 Documenter = "1"
 DocumenterCitations = "1.2"
 DocumenterInterLinks = "1"
