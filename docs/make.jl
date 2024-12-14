@@ -1,8 +1,11 @@
 using Distributions, Plots, PSIS
 using Documenter
+using DocumenterCitations
 using DocumenterInterLinks
 
 DocMeta.setdocmeta!(PSIS, :DocTestSetup, :(using PSIS); recursive=true)
+
+bib = CitationBibliography(joinpath(@__DIR__, "src", "references.bib"); style=:numeric)
 
 links = InterLinks(
     "MCMCDiagnosticTools" => "https://julia.arviz.org/MCMCDiagnosticTools/stable/"
@@ -19,10 +22,11 @@ makedocs(;
         "Plotting" => "plotting.md",
         "API" => "api.md",
         "Internal" => "internal.md",
+        "References" => "references.md",
     ],
     doctestfilters=[r"└.*"],  # ignore locations in warning messages
     warnonly=:missing_docs,
-    plugins=[links],
+    plugins=[bib, links],
 )
 
 deploydocs(; repo="github.com/arviz-devs/PSIS.jl.git", devbranch="main")
