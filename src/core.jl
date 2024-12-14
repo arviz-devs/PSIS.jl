@@ -38,7 +38,7 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
 The `pareto_shape` parameter ``k=ξ`` of the generalized Pareto distribution `tail_dist` can
 be used to diagnose reliability and convergence of estimates using the importance weights
-[^VehtariSimpson2021].
+[VehtariSimpson2021](@citep).
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
     PSIS both are reliable.
@@ -55,9 +55,9 @@ be used to diagnose reliability and convergence of estimates using the importanc
 
 See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+# References
+
+  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
 struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
@@ -177,7 +177,7 @@ _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
     psis!(log_ratios, reff = 1.0; kwargs...) -> PSISResult
 
-Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
+Compute Pareto smoothed importance sampling (PSIS) log weights [VehtariSimpson2021](@citep).
 
 While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in-place.
 
@@ -256,9 +256,7 @@ Pareto shape (k) diagnostic values:
 
 # References
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
 psis, psis!
 
