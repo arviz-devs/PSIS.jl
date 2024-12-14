@@ -20,6 +20,7 @@ makedocs(;
         "API" => "api.md",
         "Internal" => "internal.md",
     ],
+    doctestfilters=[r"└.*"],  # ignore locations in warning messages
     warnonly=:missing_docs,
     plugins=[links],
 )
