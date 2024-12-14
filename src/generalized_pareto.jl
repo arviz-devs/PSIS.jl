@@ -7,9 +7,6 @@
 
 The generalized Pareto distribution.
 
-This is equivalent to `Distributions.GeneralizedPareto` and can be converted to one with
-`convert(Distributions.GeneralizedPareto, d)`.
-
 # Constructor
 
     GeneralizedPareto(μ, σ, k)
