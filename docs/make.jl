@@ -1,7 +1,12 @@
 using Distributions, Plots, PSIS
 using Documenter
+using DocumenterInterLinks
 
 DocMeta.setdocmeta!(PSIS, :DocTestSetup, :(using PSIS); recursive=true)
+
+links = InterLinks(
+    "MCMCDiagnosticTools" => "https://julia.arviz.org/MCMCDiagnosticTools/stable/"
+)
 
 makedocs(;
     modules=[PSIS],
@@ -16,6 +21,7 @@ makedocs(;
         "Internal" => "internal.md",
     ],
     warnonly=:missing_docs,
+    plugins=[links],
 )
 
 deploydocs(; repo="github.com/arviz-devs/PSIS.jl.git", devbranch="main")
