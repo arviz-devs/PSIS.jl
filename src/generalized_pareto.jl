@@ -7,9 +7,6 @@
 
 The generalized Pareto distribution.
 
-This is equivalent to `Distributions.GeneralizedPareto` and can be converted to one with
-`convert(Distributions.GeneralizedPareto, d)`.
-
 # Constructor
 
     GeneralizedPareto(μ, σ, k)
@@ -20,8 +17,8 @@ parameter ``σ`` and shape parameter ``k``.
 !!! note
 
     The shape parameter ``k`` is equivalent to the commonly used shape parameter ``ξ``.
-    This is the same parameterization used by [^VehtariSimpson2021] and is related to that
-    used by [^ZhangStephens2009] as ``k \\mapsto -k``.
+    This is the same parameterization used by [VehtariSimpson2021](@citet) and is related to
+    that used by [ZhangStephens2009](@citet) as ``k \\mapsto -k``.
 """
 struct GeneralizedPareto{T}
     μ::T
@@ -59,7 +56,7 @@ end
 
 Fit a [`GeneralizedPareto`](@ref) with location `μ` to the data `x`.
 
-The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
+The fit is performed using the Empirical Bayes method of [ZhangStephens2009](@citet).
 
 # Keywords
 
@@ -70,10 +67,9 @@ The fit is performed using the Empirical Bayes method of [^ZhangStephens2009].
   - `min_points::Int=30`: The minimum number of quadrature points to use when estimating the
     posterior mean of ``\\theta = \\frac{\\xi}{\\sigma}``.
 
-[^ZhangStephens2009]: Jin Zhang & Michael A. Stephens (2009)
-    A New and Efficient Estimation Method for the Generalized Pareto Distribution,
-    Technometrics, 51:3, 316-325,
-    DOI: [10.1198/tech.2009.08017](https://doi.org/10.1198/tech.2009.08017)
+# References
+
+  - [ZhangStephens2009](@cite) Zhang & Stephens, Technometrics 51:3 (2009)
 """
 function fit_gpd(x::AbstractArray; prior_adjusted::Bool=true, kwargs...)
     tail_dist = fit_gpd_empiricalbayes(x; kwargs...)

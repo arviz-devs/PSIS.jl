@@ -55,7 +55,7 @@ pareto_shape(r::PSISResult) = pareto_shape(r.diagnostics)
 """
     psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
 
-Compute Pareto smoothed importance sampling (PSIS) log weights [^VehtariSimpson2021].
+Compute Pareto smoothed importance sampling (PSIS) log weights [VehtariSimpson2021](@citep).
 
 Internally the function calls [`pareto_smooth`](@ref).
 
@@ -79,9 +79,9 @@ Internally the function calls [`pareto_smooth`](@ref).
 
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+# References
+
+  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
 psis
 
