@@ -10,7 +10,7 @@ $FIELDS
 The `pareto_shape` parameter ``k`` of the generalized Pareto distribution when positive
 indicates the inverse of the number of finite moments of the distribution. Its estimate
 ``\\hat{k}`` from the tail(s) can be used to diagnose reliability and convergence of
-estimates using [^VehtariSimpson2021].
+estimates using [VehtariSimpson2021](@citep).
 
   - if ``\\hat{k} ≤ 0.5``, then PSIS behaves like the importance ratios have finite
     variance, the resulting estimate will be accurate, and the converge rate is
@@ -25,9 +25,9 @@ estimates using [^VehtariSimpson2021].
 
 See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
-[^VehtariSimpson2021]: Vehtari A, Simpson D, Gelman A, Yao Y, Gabry J. (2021).
-    Pareto smoothed importance sampling.
-    [arXiv:1507.02646v7](https://arxiv.org/abs/1507.02646v7) [stat.CO]
+# References
+
+  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
 struct ParetoDiagnostics{TK,TKM,TS,TR}
     "The estimated Pareto shape ``\\hat{k}`` for each parameter."
