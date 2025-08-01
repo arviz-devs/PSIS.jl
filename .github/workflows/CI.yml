@@ -39,7 +39,7 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-downgrade-compat@v1
+      - uses: julia-actions/julia-downgrade-compat@v2
         with:
           skip: LinearAlgebra,Printf,Statistics
         if: matrix.downgrade
@@ -67,7 +67,7 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-downgrade-compat@v1.1
+      - uses: julia-actions/julia-downgrade-compat@v2
         with:
           skip: LinearAlgebra,Printf,PSIS,Statistics
           projects: ., docs
