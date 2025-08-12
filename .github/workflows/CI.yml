@@ -15,7 +15,8 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.6'
+          - 'min'
+          - 'lts'
           - '1'
           - 'pre'
         os:
@@ -27,7 +28,7 @@ jobs:
           - 2
         downgrade: [false]
         include:
-          - version: '1.6'
+          - version: 'min'
             os: ubuntu-latest
             arch: x64
             num_threads: 1
@@ -59,7 +60,7 @@ jobs:
         include:
           - version: '1'
             downgrade: false
-          - version: '1.6'
+          - version: 'min'
             downgrade: true
     steps:
       - uses: actions/checkout@v4
