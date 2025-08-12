@@ -26,8 +26,8 @@ jobs:
           - version: '1'
             os: 'ubuntu-latest'
             num_threads: 1
-            downgrade: true
-          - version: 'min'
+            downgrade: false
+          - version: 1
             os: 'ubuntu-latest'
             num_threads: 2
             downgrade: true
