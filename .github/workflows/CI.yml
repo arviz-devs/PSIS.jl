@@ -63,6 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
+        id: setup-julia
         with:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v2
@@ -70,6 +71,7 @@ jobs:
         with:
           skip: LinearAlgebra,Printf,PSIS,Statistics
           projects: ., docs
+          julia_version: ${{ steps['setup-julia'].outputs.julia-version }}
         if: matrix.downgrade
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
