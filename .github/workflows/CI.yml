@@ -21,7 +21,7 @@ jobs:
           - 'pre'
         os: ['ubuntu-latest']
         downgrade: [false]
-        num_threads: 2
+        num_threads: [2]
         include:
           - version: '1'
             os: 'ubuntu-latest'
