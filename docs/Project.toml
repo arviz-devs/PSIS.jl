@@ -11,7 +11,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 [compat]
 Distributions = "0.25.81"
 Documenter = "1"
-DocumenterCitations = "1.2"
+DocumenterCitations = "1.2.1"
 DocumenterInterLinks = "1"
 MCMCDiagnosticTools = "0.3.2"
 Plots = "1.10.1"
