@@ -10,7 +10,7 @@ on:
 jobs:
   test:
     name: ${{ matrix.downgrade && 'Downgrade / ' || '' }}Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ matrix.num_threads }} threads - ${{ github.event_name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -19,26 +19,22 @@ jobs:
           - 'lts'
           - '1'
           - 'pre'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
-        num_threads:
-          - 1
-          - 2
-        downgrade: [false]
         include:
-          - version: 'min'
-            os: ubuntu-latest
-            arch: x64
+          - num_threads: 2
+            downgrade: false
+          - version: '1'
             num_threads: 1
             downgrade: true
+          - version: 'min'
+            num_threads: 2
+            downgrade: true
+
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
+          arch: x64
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-downgrade-compat@v1
         with:
