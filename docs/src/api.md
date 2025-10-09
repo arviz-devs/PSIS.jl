@@ -6,6 +6,7 @@
 PSISResult
 psis
 ess_is
+importance_weights
 ```
 
 ## Plotting
