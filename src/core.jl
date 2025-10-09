@@ -14,30 +14,14 @@ const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are 
 
 Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
-# Properties
+# Fields
 
-  - `log_weights`: un-normalized Pareto-smoothed log weights
-  - `weights`: normalized Pareto-smoothed weights (allocates a copy)
-  - `pareto_shape`: Pareto ``k=ξ`` shape parameter
-  - `nparams`: number of parameters in `log_weights`
-  - `ndraws`: number of draws in `log_weights`
-  - `nchains`: number of chains in `log_weights`
-  - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
-    the actual sample size.
-  - `ess`: estimated effective sample size of estimate of mean using smoothed importance
-    samples (see [`ess_is`](@ref))
-  - `tail_length`: length of the upper tail of `log_weights` that was smoothed
-  - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
-    `log_weights`. Note that the tail weights are scaled to have a maximum of 1, so
-    `tail_dist * exp(maximum(log_ratios))` is the corresponding fit directly to the tail of
-    `log_ratios`.
-  - `normalized::Bool`:indicates whether `log_weights` are log-normalized along the sample
-    dimensions.
+$FIELDS
 
 # Diagnostic
 
-The `pareto_shape` parameter ``k=ξ`` of the generalized Pareto distribution `tail_dist` can
-be used to diagnose reliability and convergence of estimates using the importance weights
+The `pareto_shape` diagnostic ``k`` of the generalized Pareto distribution can be used to
+diagnose reliability and convergence of estimates using the importance weights
 [VehtariSimpson2021](@citep).
 
   - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
@@ -59,60 +43,37 @@ See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
-struct PSISResult{T,W<:AbstractArray{T},R,L,D}
-    log_weights::W
-    reff::R
-    tail_length::L
-    tail_dist::D
-    normalized::Bool
-end
-
-function Base.propertynames(r::PSISResult)
-    return [fieldnames(typeof(r))..., :weights, :nparams, :ndraws, :nchains, :pareto_shape]
-end
-
-function Base.getproperty(r::PSISResult, k::Symbol)
-    if k === :weights
-        log_weights = getfield(r, :log_weights)
-        getfield(r, :normalized) && return exp.(log_weights)
-        return LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
-    elseif k === :nparams
-        log_weights = getfield(r, :log_weights)
-        return if ndims(log_weights) == 1
-            1
-        else
-            param_dims = _param_dims(log_weights)
-            prod(Base.Fix1(size, log_weights), param_dims; init=1)
-        end
-    elseif k === :ndraws
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 1)
-    elseif k === :nchains
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 2)
-    end
-    k === :pareto_shape && return pareto_shape(r)
-    k === :ess && return ess_is(r)
-    return getfield(r, k)
+struct PSISResult{T<:Real,L<:AbstractArray{T},P<:Union{T,AbstractArray{T}}}
+    """Un-normalized Pareto-smoothed log weights with shape
+    `(draws, [chains, [parameters...]])`"""
+    log_weights::L
+    """Pareto shape ``k`` diagnostic values for each parameter"""
+    pareto_shape::P
+    """Relative efficiency of each parameter, the ratio of the effective sample size of
+    the unsmoothed importance ratios and the actual sample size."""
+    reff::P
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
-    npoints = r.nparams
-    nchains = r.nchains
-    println(
-        io, "PSISResult with $(r.ndraws) draws, $nchains chains, and $npoints parameters"
-    )
+    ndraws = _ndraws(r)
+    nchains = _nchains(r)
+    npoints = _npoints(r)
+    println(io, "PSISResult with $ndraws draws, $nchains chains, and $npoints parameters")
     return _print_pareto_shape_summary(io, r; newline_at_end=false)
 end
+
+_ndraws(r::PSISResult) = size(r.log_weights, 1)
+_nchains(r::PSISResult) = size(r.log_weights, 2)
+_npoints(r::PSISResult) = prod(size(r.log_weights)[3:end])
 
 function pareto_shape_summary(r::PSISResult; kwargs...)
     return _print_pareto_shape_summary(stdout, r; kwargs...)
 end
 
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
-    k = as_array(pareto_shape(r))
+    k = as_array(r.pareto_shape)
     ess = as_array(ess_is(r))
-    npoints = r.nparams
+    npoints = _npoints(r)
     rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
         inds = findall(cond, k)
         count = length(inds)
@@ -267,21 +228,19 @@ function psis(logr, reff=1; kwargs...)
     return psis!(logw, reff; kwargs...)
 end
 
-function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractVector, reff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     if length(reff) != 1
         throw(DimensionMismatch("`reff` has length $(length(reff)) but must have length 1"))
     end
     warn && check_reff(reff)
     S = length(logw)
-    reff_val = first(reff)
+    reff_val = T(first(reff))
     M = tail_length(reff_val, S)
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        _maybe_log_normalize!(logw, normalize)
-        tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
+        return _failed_psis_result(logw, reff_val)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -291,23 +250,17 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
     if !all(isfinite, logw_tail)
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        _maybe_log_normalize!(logw, normalize)
-        tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
+        return _failed_psis_result(logw, reff_val)
     end
-    _, tail_dist = psis_tail!(logw_tail, logu)
-    warn && check_pareto_shape(tail_dist)
-    _maybe_log_normalize!(logw, normalize)
-    return PSISResult(logw, reff_val, M, tail_dist, normalize)
+    _, pareto_shape = psis_tail!(logw_tail, logu)
+    warn && check_pareto_shape(pareto_shape)
+    return PSISResult(logw, pareto_shape, reff_val)
 end
 function psis!(logw::AbstractMatrix, reff=1; kwargs...)
     result = psis!(vec(logw), reff; kwargs...)
-    # unflatten log_weights
-    return PSISResult(
-        logw, result.reff, result.tail_length, result.tail_dist, result.normalized
-    )
+    return PSISResult(logw, result.pareto_shape, result.reff)
 end
-function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractArray, reff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
@@ -322,30 +275,29 @@ function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=tru
     check_reff(reff)
 
     # allocate containers
-    reffs = similar(logw, eltype(reff), param_axes)
+    reffs = similar(logw, float(eltype(reff)), param_axes)
     reffs .= reff
-    tail_lengths = similar(logw, Int, param_axes)
-    tail_dists = similar(logw, GeneralizedPareto{T}, param_axes)
+    pareto_shape = similar(logw, T, param_axes)
 
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
         logw_i = _selectparam(logw, i)
-        result_i = psis!(logw_i, reffs[i]; normalize=normalize, warn=false)
-        tail_lengths[i] = result_i.tail_length
-        tail_dists[i] = result_i.tail_dist
+        result_i = psis!(logw_i, reffs[i]; warn=false)
+        pareto_shape[i] = result_i.pareto_shape[1]
     end
 
     # combine results
-    result = PSISResult(logw, reffs, tail_lengths, map(identity, tail_dists), normalize)
+    result = PSISResult(logw, pareto_shape, reffs)
 
     # warn for bad shape
     warn && check_pareto_shape(result)
     return result
 end
 
-pareto_shape(dist::GeneralizedPareto) = dist.k
-pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
-pareto_shape(dists) = map(pareto_shape, dists)
+function _failed_psis_result(logw::AbstractArray, reff::Number)
+    T = eltype(logw)
+    return PSISResult(logw, T(NaN), reff)
+end
 
 function check_reff(reff)
     isvalid = all(reff) do r
@@ -355,9 +307,8 @@ function check_reff(reff)
     return nothing
 end
 
-check_pareto_shape(result::PSISResult) = check_pareto_shape(result.tail_dist)
-function check_pareto_shape(dist::GeneralizedPareto)
-    k = pareto_shape(dist)
+check_pareto_shape(result::PSISResult) = check_pareto_shape(result.pareto_shape)
+function check_pareto_shape(k::Real)
     if k > 1
         @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_SHAPE_SUMMARY"
     elseif k > 0.7
@@ -365,10 +316,10 @@ function check_pareto_shape(dist::GeneralizedPareto)
     end
     return nothing
 end
-function check_pareto_shape(dists::AbstractArray{<:GeneralizedPareto})
-    nnan = count(isnan ∘ pareto_shape, dists)
-    ngt07 = count(>(0.7) ∘ pareto_shape, dists)
-    ngt1 = iszero(ngt07) ? ngt07 : count(>(1) ∘ pareto_shape, dists)
+function check_pareto_shape(pareto_shapes::AbstractArray{<:Real})
+    nnan = count(isnan, pareto_shapes)
+    ngt07 = count(>(0.7), pareto_shapes)
+    ngt1 = iszero(ngt07) ? ngt07 : count(>(1), pareto_shapes)
     if ngt07 > ngt1
         @warn "$(ngt07 - ngt1) parameters had Pareto shape values 0.7 < k ≤ 1. $BAD_SHAPE_SUMMARY"
     end
@@ -397,7 +348,7 @@ function psis_tail!(logw, logμ)
     w_scaled = (logw .= exp.(logw .- logw_max) .- μ_scaled)
     tail_dist = fit_gpd(w_scaled; prior_adjusted=true, sorted=true)
     # undo the scaling
-    k = pareto_shape(tail_dist)
+    (; k) = tail_dist
     if isfinite(k)
         p = uniform_probabilities(T, length(logw))
         @inbounds for i in eachindex(logw, p)
@@ -405,5 +356,5 @@ function psis_tail!(logw, logμ)
             logw[i] = min(log(quantile(tail_dist, p[i]) + μ_scaled), 0) + logw_max
         end
     end
-    return logw, tail_dist
+    return logw, k
 end
