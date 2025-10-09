@@ -13,7 +13,7 @@ using Test
             plt = f(values)
             @test plt isa Plots.Plot
             @test length(plt.series_list) == 1
-            @test plt[1][1][:x] == Base.OneTo(result.nparams)
+            @test plt[1][1][:x] == Base.OneTo(length(result.pareto_shape))
             @test plt[1][1][:y] == PSIS.as_array(result.pareto_shape)
             @test plt[1][1][:seriestype] == :scatter
             @test plt[1][:yaxis][:guide] == "Pareto shape"

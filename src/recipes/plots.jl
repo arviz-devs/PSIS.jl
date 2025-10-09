@@ -64,14 +64,14 @@ RecipesBase.@recipe function f(plt::ParetoShapePlot; showlines=false)
     yguide --> "Pareto shape"
     seriestype --> :scatter
     arg = first(plt.args)
-    k = arg isa PSIS.PSISResult ? PSIS.pareto_shape(arg) : arg
+    k = arg isa PSIS.PSISResult ? arg.pareto_shape : arg
     return (PSIS.as_array(PSIS.missing_to_nan(k)),)
 end
 
 # plot PSISResult using paretoshapeplot if seriestype not specified
 RecipesBase.@recipe function f(result::PSISResult)
     if haskey(plotattributes, :seriestype)
-        k = PSIS.as_array(PSIS.missing_to_nan(PSIS.pareto_shape(result)))
+        k = PSIS.as_array(PSIS.missing_to_nan(result.pareto_shape))
         return (k,)
     else
         return ParetoShapePlot((result,))
