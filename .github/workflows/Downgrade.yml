@@ -1,11 +1,11 @@
-name: CI
+name: Downgrade
 on:
+  pull_request:
   push:
     branches: [main]
-    tags: [v*]
-  pull_request:
-  schedule:
-    - cron: "0 0 * * *"
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -15,16 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - 'min'
-          - 'lts'
-          - '1'
-          - 'pre'
+          - '1.11'
         os: ['ubuntu-latest']
-        num_threads: [2]
-        include:
-          - version: '1'
-            os: 'ubuntu-latest'
-            num_threads: 1
+        num_threads: [1, 2]
 
     steps:
       - uses: actions/checkout@v6
@@ -34,20 +27,28 @@ jobs:
           version: ${{ matrix.version }}
           arch: x64
       - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-downgrade-compat@v2
+        with:
+          skip: LinearAlgebra,Printf,Statistics
+          julia_version: ${{ steps['setup-julia'].outputs.julia-version }}
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+        with:
+          allow_reresolve: false
+          force_latest_compatible_version: false
         env:
           JULIA_NUM_THREADS: ${{ matrix.num_threads }}
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
         with:
           file: lcov.info
+
   docs:
     name: Documentation - Julia ${{ matrix.version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: ['1']
+        version: ['1.11']
     steps:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
@@ -55,9 +56,13 @@ jobs:
         with:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-downgrade-compat@v2
+        with:
+          skip: LinearAlgebra,Printf,PSIS,Statistics
+          projects: ., docs
+          julia_version: ${{ steps['setup-julia'].outputs.julia-version }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ matrix.version == '1' && secrets.DOCUMENTER_KEY || '' }}
-          GKSwstype: "100" # https://discourse.julialang.org/t/generation-of-documentation-fails-qt-qpa-xcb-could-not-connect-to-display/60988
+          GKSwstype: "100"
