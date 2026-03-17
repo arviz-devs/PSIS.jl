@@ -1,5 +1,5 @@
 """
-    ess_is(weights; reff=1)
+    ess_is(weights; r_eff=1)
 
 Estimate effective sample size (ESS) for importance sampling over the sample dimensions.
 
@@ -23,12 +23,12 @@ Estimate ESS for Pareto-smoothed importance sampling.
 ess_is
 
 function ess_is(r::PSISResult; bad_shape_nan::Bool=true)
-    neff = ess_is(r.weights; reff=r.reff)
+    neff = ess_is(r.weights; r_eff=r.r_eff)
     return _apply_nan(neff, r.tail_dist; bad_shape_nan=bad_shape_nan)
 end
-function ess_is(weights; reff=1)
+function ess_is(weights; r_eff=1)
     dims = _sample_dims(weights)
-    return reff ./ dropdims(sum(abs2, weights; dims=dims); dims=dims)
+    return r_eff ./ dropdims(sum(abs2, weights; dims=dims); dims=dims)
 end
 
 function _apply_nan(neff, dist; bad_shape_nan)

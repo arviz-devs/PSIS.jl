@@ -22,7 +22,7 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `nparams`: number of parameters in `log_weights`
   - `ndraws`: number of draws in `log_weights`
   - `nchains`: number of chains in `log_weights`
-  - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
+  - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
   - `ess`: estimated effective sample size of estimate of mean using smoothed importance
     samples (see [`ess_is`](@ref))
@@ -61,7 +61,7 @@ See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 """
 struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     log_weights::W
-    reff::R
+    r_eff::R
     tail_length::L
     tail_dist::D
     normalized::Bool
@@ -174,8 +174,8 @@ _pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
 _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 """
-    psis(log_ratios, reff = 1.0; kwargs...) -> PSISResult
-    psis!(log_ratios, reff = 1.0; kwargs...) -> PSISResult
+    psis(log_ratios, r_eff = 1.0; kwargs...) -> PSISResult
+    psis!(log_ratios, r_eff = 1.0; kwargs...) -> PSISResult
 
 Compute Pareto smoothed importance sampling (PSIS) log weights [VehtariSimpson2021](@citep).
 
@@ -186,8 +186,8 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
   - `log_ratios`: an array of logarithms of importance ratios, with size
     `(draws, [chains, [parameters...]])`, where `chains>1` would be used when chains are
     generated using Markov chain Monte Carlo.
-  - `reff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
-    `log_ratios` and the actual sample size `reff = ess/(draws * chains)`, used to account
+  - `r_eff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
+    `log_ratios` and the actual sample size `r_eff = ess/(draws * chains)`, used to account
     for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
     size `(parameters...,)` to match `log_ratios`.
 
@@ -238,9 +238,9 @@ If the draws were generated using MCMC, we can compute the relative efficiency u
 ```jldoctest psis
 julia> using MCMCDiagnosticTools
 
-julia> reff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
+julia> r_eff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
 
-julia> result = psis(log_ratios, reff)
+julia> result = psis(log_ratios, r_eff)
 ┌ Warning: 9 parameters had Pareto shape values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
 └ @ PSIS ~/.julia/packages/PSIS/...
 ┌ Warning: 1 parameters had Pareto shape values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
@@ -260,28 +260,28 @@ Pareto shape (k) diagnostic values:
 """
 psis, psis!
 
-function psis(logr, reff=1; kwargs...)
+function psis(logr, r_eff=1; kwargs...)
     T = float(eltype(logr))
     logw = similar(logr, T)
     copyto!(logw, logr)
-    return psis!(logw, reff; kwargs...)
+    return psis!(logw, r_eff; kwargs...)
 end
 
-function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractVecOrMat, r_eff=1; normalize::Bool=true, warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
-    if length(reff) != 1
-        throw(DimensionMismatch("`reff` has length $(length(reff)) but must have length 1"))
+    if length(r_eff) != 1
+        throw(DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1"))
     end
-    warn && check_reff(reff)
+    warn && check_r_eff(r_eff)
     S = length(logw)
-    reff_val = first(reff)
-    M = tail_length(reff_val, S)
+    r_eff_val = first(r_eff)
+    M = tail_length(r_eff_val, S)
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
         _maybe_log_normalize!(logw, normalize)
         tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
+        return PSISResult(logw, r_eff_val, M, tail_dist_failed, normalize)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -293,50 +293,50 @@ function psis!(logw::AbstractVecOrMat, reff=1; normalize::Bool=true, warn::Bool=
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
         _maybe_log_normalize!(logw, normalize)
         tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, reff_val, M, tail_dist_failed, normalize)
+        return PSISResult(logw, r_eff_val, M, tail_dist_failed, normalize)
     end
     _, tail_dist = psis_tail!(logw_tail, logu)
     warn && check_pareto_shape(tail_dist)
     _maybe_log_normalize!(logw, normalize)
-    return PSISResult(logw, reff_val, M, tail_dist, normalize)
+    return PSISResult(logw, r_eff_val, M, tail_dist, normalize)
 end
-function psis!(logw::AbstractMatrix, reff=1; kwargs...)
-    result = psis!(vec(logw), reff; kwargs...)
+function psis!(logw::AbstractMatrix, r_eff=1; kwargs...)
+    result = psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
     return PSISResult(
-        logw, result.reff, result.tail_length, result.tail_dist, result.normalized
+        logw, result.r_eff, result.tail_length, result.tail_dist, result.normalized
     )
 end
-function psis!(logw::AbstractArray, reff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractArray, r_eff=1; normalize::Bool=true, warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
     param_shape = map(length, param_axes)
-    if !(length(reff) == 1 || size(reff) == param_shape)
+    if !(length(r_eff) == 1 || size(r_eff) == param_shape)
         throw(
             DimensionMismatch(
-                "`reff` has shape $(size(reff)) but must have same shape as the parameter axes $(param_shape)",
+                "`r_eff` has shape $(size(r_eff)) but must have same shape as the parameter axes $(param_shape)",
             ),
         )
     end
-    check_reff(reff)
+    check_r_eff(r_eff)
 
     # allocate containers
-    reffs = similar(logw, eltype(reff), param_axes)
-    reffs .= reff
+    r_effs = similar(logw, eltype(r_eff), param_axes)
+    r_effs .= r_eff
     tail_lengths = similar(logw, Int, param_axes)
     tail_dists = similar(logw, GeneralizedPareto{T}, param_axes)
 
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
         logw_i = _selectparam(logw, i)
-        result_i = psis!(logw_i, reffs[i]; normalize=normalize, warn=false)
+        result_i = psis!(logw_i, r_effs[i]; normalize=normalize, warn=false)
         tail_lengths[i] = result_i.tail_length
         tail_dists[i] = result_i.tail_dist
     end
 
     # combine results
-    result = PSISResult(logw, reffs, tail_lengths, map(identity, tail_dists), normalize)
+    result = PSISResult(logw, r_effs, tail_lengths, map(identity, tail_dists), normalize)
 
     # warn for bad shape
     warn && check_pareto_shape(result)
@@ -347,11 +347,11 @@ pareto_shape(dist::GeneralizedPareto) = dist.k
 pareto_shape(r::PSISResult) = pareto_shape(getfield(r, :tail_dist))
 pareto_shape(dists) = map(pareto_shape, dists)
 
-function check_reff(reff)
-    isvalid = all(reff) do r
+function check_r_eff(r_eff)
+    isvalid = all(r_eff) do r
         return isfinite(r) && r > 0
     end
-    isvalid || @warn "All values of `reff` should be finite, but some are not."
+    isvalid || @warn "All values of `r_eff` should be finite, but some are not."
     return nothing
 end
 
@@ -381,10 +381,10 @@ function check_pareto_shape(dists::AbstractArray{<:GeneralizedPareto})
     return nothing
 end
 
-function tail_length(reff, S)
+function tail_length(r_eff, S)
     max_length = cld(S, 5)
-    (isfinite(reff) && reff > 0) || return max_length
-    min_length = ceil(Int, 3 * sqrt(S / reff))
+    (isfinite(r_eff) && r_eff > 0) || return max_length
+    min_length = ceil(Int, 3 * sqrt(S / r_eff))
     return min(max_length, min_length)
 end
 

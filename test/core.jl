@@ -12,9 +12,9 @@ using DimensionalData: Dimensions, DimArray
         log_weights = randn(500)
         log_weights_norm = logsumexp(log_weights)
         tail_length = 100
-        reff = 2.0
+        r_eff = 2.0
         tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, reff, tail_length, tail_dist, false)
+        result = PSISResult(log_weights, r_eff, tail_length, tail_dist, false)
         @test result isa PSISResult{Float64}
         @test issetequal(
             propertynames(result),
@@ -25,7 +25,7 @@ using DimensionalData: Dimensions, DimArray
                 :normalized,
                 :nparams,
                 :pareto_shape,
-                :reff,
+                :r_eff,
                 :tail_dist,
                 :tail_length,
                 :weights,
@@ -33,7 +33,7 @@ using DimensionalData: Dimensions, DimArray
         )
         @test result.log_weights == log_weights
         @test result.weights ≈ softmax(log_weights)
-        @test result.reff == reff
+        @test result.r_eff == r_eff
         @test result.nparams == 1
         @test result.ndraws == 500
         @test result.nchains == 1
@@ -56,17 +56,17 @@ using DimensionalData: Dimensions, DimArray
         log_weights_norm = logsumexp(log_weights; dims=(1, 2))
         log_weights .-= log_weights_norm
         tail_length = [1600, 1601, 1602]
-        reff = [0.8, 0.9, 1.1]
+        r_eff = [0.8, 0.9, 1.1]
         tail_dist = [
             PSIS.GeneralizedPareto(1.0, 1.0, 0.5),
             PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
             PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
         ]
-        result = PSISResult(log_weights, reff, tail_length, tail_dist, true)
+        result = PSISResult(log_weights, r_eff, tail_length, tail_dist, true)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.weights ≈ softmax(log_weights; dims=(1, 2))
-        @test result.reff == reff
+        @test result.r_eff == r_eff
         @test result.nparams == 3
         @test result.ndraws == 500
         @test result.nchains == 4
@@ -80,8 +80,8 @@ using DimensionalData: Dimensions, DimArray
             rng = StableRNG(42)
             x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
-            reff = [100; ones(29)]
-            result = psis(log_ratios, reff)
+            r_eff = [100; ones(29)]
+            result = psis(log_ratios, r_eff)
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto shape (k) diagnostic values:
@@ -152,29 +152,29 @@ end
         end
     end
 
-    @testset "reff combinations" begin
-        reffs_uniform = [rand(), fill(rand()), [rand()]]
+    @testset "r_eff combinations" begin
+        r_effs_uniform = [rand(), fill(rand()), [rand()]]
         x = randn(1000)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         @test_throws DimensionMismatch psis(x, rand(2))
 
         x = randn(1000, 4)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         @test_throws DimensionMismatch psis(x, rand(2))
 
         x = randn(1000, 4, 2)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         psis(x, rand(2))
         @test_throws DimensionMismatch psis(x, rand(3))
 
         x = randn(1000, 4, 2, 3)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         psis(x, rand(2, 3))
@@ -189,7 +189,7 @@ end
                 psis(logr, rbad)
             end
             msg = String(take!(io))
-            @test occursin("All values of `reff` should be finite, but some are not.", msg)
+            @test occursin("All values of `r_eff` should be finite, but some are not.", msg)
         end
 
         io = IOBuffer()
@@ -301,7 +301,7 @@ end
             result = @inferred psis(logr, r_effs; normalize=false)
             logw = result.log_weights
             @test !isapprox(logw, logr)
-            basename = "normal_to_cauchy_reff_$(r_eff)"
+            basename = "normal_to_cauchy_r_eff_$(r_eff)"
             @test_reference(
                 "references/$basename.jld2",
                 Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
@@ -336,7 +336,7 @@ end
             result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
+            for k in (:pareto_shape, :tail_length, :tail_dist, :r_eff)
                 prop = getproperty(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
