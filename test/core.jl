@@ -18,22 +18,10 @@ using DimensionalData: Dimensions, DimArray
         @test result isa PSISResult{Float64}
         @test issetequal(
             propertynames(result),
-            [
-                :log_weights,
-                :nchains,
-                :ndraws,
-                :nparams,
-                :pareto_shape,
-                :r_eff,
-                :tail_dist,
-                :tail_length,
-            ],
+            [:log_weights, :pareto_shape, :r_eff, :tail_dist, :tail_length],
         )
         @test result.log_weights == log_weights
         @test result.r_eff == r_eff
-        @test result.nparams == 1
-        @test result.ndraws == 500
-        @test result.nchains == 1
         @test result.tail_length == tail_length
         @test result.tail_dist == tail_dist
         @test result.pareto_shape == 0.5
@@ -62,9 +50,6 @@ using DimensionalData: Dimensions, DimArray
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.r_eff == r_eff
-        @test result.nparams == 3
-        @test result.ndraws == 500
-        @test result.nchains == 4
         @test result.tail_length == tail_length
         @test result.tail_dist == tail_dist
         @test result.pareto_shape == [0.5, 0.6, 0.7]

@@ -18,9 +18,6 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
   - `log_weights`: un-normalized Pareto-smoothed log weights
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
-  - `nparams`: number of parameters in `log_weights`
-  - `ndraws`: number of draws in `log_weights`
-  - `nchains`: number of chains in `log_weights`
   - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
@@ -62,35 +59,17 @@ struct PSISResult{T,W<:AbstractArray{T},R,L,D}
 end
 
 function Base.propertynames(r::PSISResult)
-    return [fieldnames(typeof(r))..., :nparams, :ndraws, :nchains, :pareto_shape]
+    return [fieldnames(typeof(r))..., :pareto_shape]
 end
 
 function Base.getproperty(r::PSISResult, k::Symbol)
-    if k === :nparams
-        log_weights = getfield(r, :log_weights)
-        return if ndims(log_weights) == 1
-            1
-        else
-            param_dims = _param_dims(log_weights)
-            prod(Base.Fix1(size, log_weights), param_dims; init=1)
-        end
-    elseif k === :ndraws
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 1)
-    elseif k === :nchains
-        log_weights = getfield(r, :log_weights)
-        return size(log_weights, 2)
-    end
     k === :pareto_shape && return pareto_shape(r)
     return getfield(r, k)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
-    npoints = r.nparams
-    nchains = r.nchains
-    println(
-        io, "PSISResult with $(r.ndraws) draws, $nchains chains, and $npoints parameters"
-    )
+    (ndraws, nchains, nparams) = _sample_param_sizes(r.log_weights)
+    println(io, "PSISResult with $ndraws draws, $nchains chains, and $nparams parameters")
     return _print_pareto_shape_summary(io, r; newline_at_end=false)
 end
 
@@ -101,11 +80,11 @@ end
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_shape(r))
     ess = as_array(ess_is(r))
-    npoints = r.nparams
+    (_, _, nparams) = _sample_param_sizes(r.log_weights)
     rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
         inds = findall(cond, k)
         count = length(inds)
-        perc = 100 * count / npoints
+        perc = 100 * count / nparams
         ess_min = if count == 0 || desc == "failed"
             oftype(first(ess), NaN)
         else

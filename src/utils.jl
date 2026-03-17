@@ -22,6 +22,13 @@ _param_axes(x::AbstractArray) = map(Base.Fix1(axes, x), _param_dims(x))
 # iterate over all parameters; combine with _selectparam
 _eachparamindex(x::AbstractArray) = CartesianIndices(_param_axes(x))
 
+function _sample_param_sizes(x::AbstractArray)
+    ndraws = size(x, 1)
+    nchains = size(x, 2)
+    nparams = prod(length, _param_axes(x); init=1)
+    return (ndraws, nchains, nparams)
+end
+
 # view of all draws for a param
 function _selectparam(x::AbstractArray, i::CartesianIndex)
     sample_dims = ntuple(_ -> Colon(), ndims(x) - length(i))

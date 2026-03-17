@@ -7,13 +7,14 @@ using Test
         sz in (100, (100, 10))
 
         result = psis(randn(sz...))
+        (_, _, nparams) = PSIS._sample_param_sizes(result.log_weights)
 
         @testset for values in (result, result.pareto_shape)
             plot()
             plt = f(values)
             @test plt isa Plots.Plot
             @test length(plt.series_list) == 1
-            @test plt[1][1][:x] == Base.OneTo(result.nparams)
+            @test plt[1][1][:x] == Base.OneTo(nparams)
             @test plt[1][1][:y] == PSIS.as_array(result.pareto_shape)
             @test plt[1][1][:seriestype] == :scatter
             @test plt[1][:yaxis][:guide] == "Pareto shape"
