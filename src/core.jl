@@ -23,8 +23,6 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `nchains`: number of chains in `log_weights`
   - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size.
-  - `ess`: estimated effective sample size of estimate of mean using smoothed importance
-    samples (see [`ess_is`](@ref))
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
   - `tail_dist`: the generalized Pareto distribution that was fit to the tail of
     `log_weights`. Note that the tail weights are scaled to have a maximum of 1, so
@@ -84,7 +82,6 @@ function Base.getproperty(r::PSISResult, k::Symbol)
         return size(log_weights, 2)
     end
     k === :pareto_shape && return pareto_shape(r)
-    k === :ess && return ess_is(r)
     return getfield(r, k)
 end
 

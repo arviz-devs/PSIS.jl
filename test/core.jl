@@ -37,14 +37,13 @@ using DimensionalData: Dimensions, DimArray
         @test result.tail_length == tail_length
         @test result.tail_dist == tail_dist
         @test result.pareto_shape == 0.5
-        @test result.ess ≈ ess_is(result)
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto shape (k) diagnostic values:
                                     Count       Min. ESS
-                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, result.ess))"""
+                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess_is(result)))"""
         end
     end
 
