@@ -27,10 +27,3 @@ function _selectparam(x::AbstractArray, i::CartesianIndex)
     sample_dims = ntuple(_ -> Colon(), ndims(x) - length(i))
     return view(x, sample_dims..., i)
 end
-
-function _maybe_log_normalize!(x::AbstractArray, normalize::Bool)
-    if normalize
-        x .-= LogExpFunctions.logsumexp(x; dims=_sample_dims(x))
-    end
-    return x
-end

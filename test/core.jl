@@ -14,7 +14,7 @@ using DimensionalData: Dimensions, DimArray
         tail_length = 100
         r_eff = 2.0
         tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, r_eff, tail_length, tail_dist, false)
+        result = PSISResult(log_weights, r_eff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test issetequal(
             propertynames(result),
@@ -22,7 +22,6 @@ using DimensionalData: Dimensions, DimArray
                 :log_weights,
                 :nchains,
                 :ndraws,
-                :normalized,
                 :nparams,
                 :pareto_shape,
                 :r_eff,
@@ -62,7 +61,7 @@ using DimensionalData: Dimensions, DimArray
             PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
             PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
         ]
-        result = PSISResult(log_weights, r_eff, tail_length, tail_dist, true)
+        result = PSISResult(log_weights, r_eff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.weights ≈ softmax(log_weights; dims=(1, 2))
@@ -119,11 +118,7 @@ end
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
-                @test exp.(logw) == r.weights
-
-                r2 = psis(logr; normalize=false)
-                @test !(r2.log_weights ≈ r.log_weights)
-                @test r2.weights ≈ r.weights
+                @test softmax(logw; dims) ≈ r.weights
 
                 if length(sz) > 1
                     @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
@@ -195,7 +190,7 @@ end
         io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr; normalize=false)
+            psis(logr)
         end
         @test result.log_weights == logr
         @test isnan(result.tail_dist.σ)
@@ -215,7 +210,7 @@ end
             vcat(ones(50), fill(-Inf, 435)),
         ]
             result = with_logger(SimpleLogger(io)) do
-                psis(logr; normalize=false)
+                psis(logr)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
             @test isnan(result.tail_dist.σ)
@@ -229,7 +224,7 @@ end
         x = rand(rng, Exponential(50), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr; normalize=false)
+            psis(logr)
         end
         @test result.log_weights != logr
         @test result.pareto_shape > 0.7
@@ -298,7 +293,7 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = @inferred psis(logr, r_effs; normalize=false)
+            result = @inferred psis(logr, r_effs)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_r_eff_$(r_eff)"

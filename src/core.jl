@@ -31,8 +31,6 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
     `log_weights`. Note that the tail weights are scaled to have a maximum of 1, so
     `tail_dist * exp(maximum(log_ratios))` is the corresponding fit directly to the tail of
     `log_ratios`.
-  - `normalized::Bool`:indicates whether `log_weights` are log-normalized along the sample
-    dimensions.
 
 # Diagnostic
 
@@ -64,7 +62,6 @@ struct PSISResult{T,W<:AbstractArray{T},R,L,D}
     r_eff::R
     tail_length::L
     tail_dist::D
-    normalized::Bool
 end
 
 function Base.propertynames(r::PSISResult)
@@ -74,7 +71,6 @@ end
 function Base.getproperty(r::PSISResult, k::Symbol)
     if k === :weights
         log_weights = getfield(r, :log_weights)
-        getfield(r, :normalized) && return exp.(log_weights)
         return LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
     elseif k === :nparams
         log_weights = getfield(r, :log_weights)
@@ -194,8 +190,6 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
 # Keywords
 
   - `warn=true`: If `true`, warning messages are delivered
-  - `normalize=true`: If `true`, the log-weights will be log-normalized so that
-    `exp.(log_weights)` sums to 1 along the sample dimensions.
 
 # Returns
 
@@ -267,7 +261,7 @@ function psis(logr, r_eff=1; kwargs...)
     return psis!(logw, r_eff; kwargs...)
 end
 
-function psis!(logw::AbstractVecOrMat, r_eff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     if length(r_eff) != 1
         throw(DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1"))
@@ -279,9 +273,8 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; normalize::Bool=true, warn::Bool
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        _maybe_log_normalize!(logw, normalize)
         tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, r_eff_val, M, tail_dist_failed, normalize)
+        return PSISResult(logw, r_eff_val, M, tail_dist_failed)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -291,23 +284,21 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; normalize::Bool=true, warn::Bool
     if !all(isfinite, logw_tail)
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        _maybe_log_normalize!(logw, normalize)
         tail_dist_failed = GeneralizedPareto(0, T(NaN), T(NaN))
-        return PSISResult(logw, r_eff_val, M, tail_dist_failed, normalize)
+        return PSISResult(logw, r_eff_val, M, tail_dist_failed)
     end
     _, tail_dist = psis_tail!(logw_tail, logu)
     warn && check_pareto_shape(tail_dist)
-    _maybe_log_normalize!(logw, normalize)
-    return PSISResult(logw, r_eff_val, M, tail_dist, normalize)
+    return PSISResult(logw, r_eff_val, M, tail_dist)
 end
 function psis!(logw::AbstractMatrix, r_eff=1; kwargs...)
     result = psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
     return PSISResult(
-        logw, result.r_eff, result.tail_length, result.tail_dist, result.normalized
+        logw, result.r_eff, result.tail_length, result.tail_dist
     )
 end
-function psis!(logw::AbstractArray, r_eff=1; normalize::Bool=true, warn::Bool=true)
+function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
@@ -330,13 +321,13 @@ function psis!(logw::AbstractArray, r_eff=1; normalize::Bool=true, warn::Bool=tr
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
         logw_i = _selectparam(logw, i)
-        result_i = psis!(logw_i, r_effs[i]; normalize=normalize, warn=false)
+        result_i = psis!(logw_i, r_effs[i]; warn=false)
         tail_lengths[i] = result_i.tail_length
         tail_dists[i] = result_i.tail_dist
     end
 
     # combine results
-    result = PSISResult(logw, r_effs, tail_lengths, map(identity, tail_dists), normalize)
+    result = PSISResult(logw, r_effs, tail_lengths, map(identity, tail_dists))
 
     # warn for bad shape
     warn && check_pareto_shape(result)
