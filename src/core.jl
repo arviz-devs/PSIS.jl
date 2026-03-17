@@ -264,7 +264,9 @@ end
 function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     if length(r_eff) != 1
-        throw(DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1"))
+        throw(
+            DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1")
+        )
     end
     warn && check_r_eff(r_eff)
     S = length(logw)
@@ -294,9 +296,7 @@ end
 function psis!(logw::AbstractMatrix, r_eff=1; kwargs...)
     result = psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
-    return PSISResult(
-        logw, result.r_eff, result.tail_length, result.tail_dist
-    )
+    return PSISResult(logw, result.r_eff, result.tail_length, result.tail_dist)
 end
 function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))

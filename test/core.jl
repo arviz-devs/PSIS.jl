@@ -303,7 +303,7 @@ end
                 by =
                     (ref, x) ->
                         isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
-                            isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
+                        isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
             )
         end
     end
