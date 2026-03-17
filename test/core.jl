@@ -27,11 +27,9 @@ using DimensionalData: Dimensions, DimArray
                 :r_eff,
                 :tail_dist,
                 :tail_length,
-                :weights,
             ],
         )
         @test result.log_weights == log_weights
-        @test result.weights ≈ softmax(log_weights)
         @test result.r_eff == r_eff
         @test result.nparams == 1
         @test result.ndraws == 500
@@ -64,7 +62,6 @@ using DimensionalData: Dimensions, DimArray
         result = PSISResult(log_weights, r_eff, tail_length, tail_dist)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.weights ≈ softmax(log_weights; dims=(1, 2))
         @test result.r_eff == r_eff
         @test result.nparams == 3
         @test result.ndraws == 500
@@ -118,7 +115,6 @@ end
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
-                @test softmax(logw; dims) ≈ r.weights
 
                 if length(sz) > 1
                     @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
@@ -137,7 +133,7 @@ end
                     @test map(d -> d.k, tail_dist) == k
                 end
 
-                w = r.weights
+                w = PSIS.importance_weights(logw)
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(

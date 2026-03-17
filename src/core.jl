@@ -17,7 +17,6 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 # Properties
 
   - `log_weights`: un-normalized Pareto-smoothed log weights
-  - `weights`: normalized Pareto-smoothed weights (allocates a copy)
   - `pareto_shape`: Pareto ``k=ξ`` shape parameter
   - `nparams`: number of parameters in `log_weights`
   - `ndraws`: number of draws in `log_weights`
@@ -65,14 +64,11 @@ struct PSISResult{T,W<:AbstractArray{T},R,L,D}
 end
 
 function Base.propertynames(r::PSISResult)
-    return [fieldnames(typeof(r))..., :weights, :nparams, :ndraws, :nchains, :pareto_shape]
+    return [fieldnames(typeof(r))..., :nparams, :ndraws, :nchains, :pareto_shape]
 end
 
 function Base.getproperty(r::PSISResult, k::Symbol)
-    if k === :weights
-        log_weights = getfield(r, :log_weights)
-        return LogExpFunctions.softmax(log_weights; dims=_sample_dims(log_weights))
-    elseif k === :nparams
+    if k === :nparams
         log_weights = getfield(r, :log_weights)
         return if ndims(log_weights) == 1
             1

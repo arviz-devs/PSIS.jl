@@ -23,7 +23,8 @@ Estimate ESS for Pareto-smoothed importance sampling.
 ess_is
 
 function ess_is(r::PSISResult; bad_shape_nan::Bool=true)
-    neff = ess_is(r.weights; r_eff=r.r_eff)
+    weights = importance_weights(r.log_weights)
+    neff = ess_is(weights; r_eff=r.r_eff)
     return _apply_nan(neff, r.tail_dist; bad_shape_nan=bad_shape_nan)
 end
 function ess_is(weights; r_eff=1)
