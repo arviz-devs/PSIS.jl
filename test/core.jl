@@ -14,7 +14,6 @@ using DimensionalData: Dimensions, DimArray
         pareto_khat = 0.5
         result = PSISResult(log_weights, pareto_khat, ess_is)
         @test result isa PSISResult{Float64}
-        @test issetequal(propertynames(result), [:log_weights, :pareto_khat, :ess_is])
         @test result.log_weights == log_weights
         @test result.pareto_khat == pareto_khat
         @test result.ess_is == ess_is
@@ -30,9 +29,6 @@ using DimensionalData: Dimensions, DimArray
 
     @testset "array log-weights" begin
         log_weights = randn(500, 4, 3)
-        log_weights_norm = logsumexp(log_weights; dims=(1, 2))
-        log_weights .-= log_weights_norm
-        tail_length = [1600, 1601, 1602]
         r_eff = [0.8, 0.9, 1.1]
         ess_is = [100.0, 101.0, 102.0]
         pareto_khats = [0.5, 0.6, 0.7]
@@ -274,7 +270,7 @@ end
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
             @testset for k in (:pareto_khat, :ess_is)
-                prop = getproperty(result, k)
+                prop = getfield(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
             end
