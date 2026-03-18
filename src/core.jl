@@ -37,8 +37,6 @@ be used to diagnose reliability and convergence of estimates using the importanc
     exists. The convergence rate is close to zero, and bias can be large with practical
     sample sizes.
 
-See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
-
 # References
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
@@ -154,8 +152,8 @@ Compute Pareto smoothed importance sampling (PSIS) log-weights [VehtariSimpson20
 
   - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
 
-A warning is raised if the Pareto shape parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
-details and [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
+A warning is raised if the Pareto k-hat parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
+details.
 
 # Examples
 

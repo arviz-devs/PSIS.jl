@@ -6,10 +6,3 @@
 PSISResult
 psis
 ```
-
-## Plotting
-
-```@docs
-PSISPlots
-PSISPlots.paretoshapeplot
-```
