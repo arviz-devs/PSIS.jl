@@ -35,6 +35,7 @@ function _selectparam(x::AbstractArray, i::CartesianIndex)
     return view(x, sample_dims..., i)
 end
 
-function importance_weights(logw::AbstractArray)
-    return LogExpFunctions.softmax(logw; dims=_sample_dims(logw))
+function importance_weights(w::AbstractArray; are_log_weights::Bool=false)
+    are_log_weights || return w
+    return LogExpFunctions.softmax(w; dims=_sample_dims(w))
 end

@@ -10,22 +10,21 @@ using DimensionalData: Dimensions, DimArray
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
-        log_weights_norm = logsumexp(log_weights)
-        r_eff = 2.0
+        ess = 300.0
         pareto_shape = 0.5
-        result = PSISResult(log_weights, pareto_shape, r_eff)
+        result = PSISResult(log_weights, pareto_shape, ess)
         @test result isa PSISResult{Float64}
-        @test issetequal(propertynames(result), [:log_weights, :pareto_shape, :r_eff])
+        @test issetequal(propertynames(result), [:log_weights, :pareto_shape, :ess])
         @test result.log_weights == log_weights
-        @test result.r_eff == r_eff
         @test result.pareto_shape == pareto_shape
+        @test result.ess == ess
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto shape (k) diagnostic values:
                                     Count       Min. ESS
-                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess_is(result)))"""
+                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess))"""
         end
     end
 
@@ -35,13 +34,13 @@ using DimensionalData: Dimensions, DimArray
         log_weights .-= log_weights_norm
         tail_length = [1600, 1601, 1602]
         r_eff = [0.8, 0.9, 1.1]
+        ess = [100.0, 101.0, 102.0]
         pareto_shapes = [0.5, 0.6, 0.7]
-        result = PSISResult(log_weights, pareto_shapes, r_eff)
+        result = PSISResult(log_weights, pareto_shapes, ess)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.r_eff == r_eff
         @test result.pareto_shape == pareto_shapes
-
+        @test result.ess == ess
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
@@ -62,7 +61,7 @@ using DimensionalData: Dimensions, DimArray
     end
 end
 
-@testset "psis/psis!" begin
+@testset "psis" begin
     @testset "importance sampling tests" begin
         target = Exponential(1)
         x_target = 1  # 𝔼[x] with x ~ Exponential(1)
@@ -92,7 +91,7 @@ end
                 @test k isa (length(sz) < 3 ? Number : AbstractVector)
                 @test r.pareto_shape == k
 
-                w = PSIS.importance_weights(logw)
+                w = PSIS.importance_weights(logw; are_log_weights=true)
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(
@@ -279,7 +278,7 @@ end
             result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            for k in (:pareto_shape, :r_eff)
+            @testset for k in (:pareto_shape, :ess)
                 prop = getproperty(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))

@@ -5,7 +5,6 @@
 ```@docs
 PSISResult
 psis
-ess_is
 ```
 
 ## Plotting

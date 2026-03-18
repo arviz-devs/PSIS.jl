@@ -43,14 +43,13 @@ See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
-struct PSISResult{T,W<:AbstractArray{T},K,R}
+struct PSISResult{T,W<:AbstractArray{T},K,E}
     """Un-normalized Pareto-smoothed log importance weights."""
     log_weights::W
-    """The Pareto ``k=ξ`` shape parameter."""
+    """Normalized Pareto-smoothed importance weights."""
     pareto_shape::K
-    """The ratio of the effective sample size of the unsmoothed importance ratios and
-    the actual sample size."""
-    r_eff::R
+    """Estimated effective sample sizes."""
+    ess::E
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
@@ -65,7 +64,7 @@ end
 
 function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_shape(r))
-    ess = as_array(ess_is(r))
+    ess = as_array(r.ess)
     (_, _, nparams) = _sample_param_sizes(r.log_weights)
     rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
         inds = findall(cond, k)
@@ -119,7 +118,12 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         format = formats[r.desc]
         printstyled(io, _pad_left(count, col_widths[3]); format...)
         printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
-        print(io, col_delim_tot, isfinite(r.ess_min) ? floor(Int, r.ess_min) : "——")
+        ess_min_string = if isfinite(r.ess_min) && r.desc ∈ ("good", "okay")
+            string(floor(Int, r.ess_min))
+        else
+            "——"
+        end
+        print(io, col_delim_tot, ess_min_string)
     end
     return nothing
 end
@@ -129,11 +133,8 @@ _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 """
     psis(log_ratios, r_eff = 1.0; kwargs...) -> PSISResult
-    psis!(log_ratios, r_eff = 1.0; kwargs...) -> PSISResult
 
-Compute Pareto smoothed importance sampling (PSIS) log weights [VehtariSimpson2021](@citep).
-
-While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in-place.
+Compute Pareto smoothed importance sampling (PSIS) log-weights [VehtariSimpson2021](@citep).
 
 # Arguments
 
@@ -210,16 +211,20 @@ Pareto shape (k) diagnostic values:
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
-psis, psis!
+psis
 
-function psis(logr, r_eff=1; kwargs...)
+function psis(logr, r_eff=1; warn::Bool=true, kwargs...)
     T = float(eltype(logr))
     logw = similar(logr, T)
     copyto!(logw, logr)
-    return psis!(logw, r_eff; kwargs...)
+    _, khat = _psis!(logw, r_eff; warn, kwargs...)
+    ess = ess_is(logw, r_eff)
+    result = PSISResult(logw, khat, ess)
+    warn && check_pareto_shape(result)
+    return result
 end
 
-function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
+function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     if length(r_eff) != 1
         throw(
@@ -233,7 +238,7 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        return PSISResult(logw, T(NaN), r_eff_val)
+        return logw, T(NaN)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -243,19 +248,18 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     if !all(isfinite, logw_tail)
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        return PSISResult(logw, T(NaN), r_eff_val)
+        return logw, T(NaN)
     end
-    _, tail_dist = psis_tail!(logw_tail, logu)
-    result = PSISResult(logw, pareto_shape(tail_dist), r_eff_val)
-    warn && check_pareto_shape(result)
-    return result
+    _, tail_dist = _psis_tail!(logw_tail, logu)
+    k = T(pareto_shape(tail_dist))
+    return logw, k
 end
-function psis!(logw::AbstractMatrix, r_eff=1; kwargs...)
-    result = psis!(vec(logw), r_eff; kwargs...)
+function _psis!(logw::AbstractMatrix, r_eff; kwargs...)
+    _, k = _psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
-    return PSISResult(logw, result.pareto_shape, result.r_eff)
+    return logw, k
 end
-function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
+function _psis!(logw::AbstractArray, r_eff; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
@@ -277,16 +281,11 @@ function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
         logw_i = _selectparam(logw, i)
-        result_i = psis!(logw_i, r_effs[i]; warn=false)
-        khats[i] = result_i.pareto_shape
+        _, k = _psis!(logw_i, r_effs[i]; warn=false)
+        khats[i] = k
     end
 
-    # combine results
-    result = PSISResult(logw, khats, r_effs)
-
-    # warn for bad shape
-    warn && check_pareto_shape(result)
-    return result
+    return logw, khats
 end
 
 pareto_shape(dist::GeneralizedPareto) = dist.k
@@ -333,7 +332,7 @@ function tail_length(r_eff, S)
     return min(max_length, min_length)
 end
 
-function psis_tail!(logw, logμ)
+function _psis_tail!(logw, logμ)
     T = eltype(logw)
     logw_max = logw[end]
     # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
