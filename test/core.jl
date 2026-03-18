@@ -181,9 +181,7 @@ end
         @test result.log_weights != logr
         @test result.pareto_khat > 0.7
         msg = String(take!(io))
-        @test occursin(
-            "Warning: Pareto k-hat = 0.72 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg
-        )
+        @test occursin("Warning: Pareto k-hat = 0.72 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
@@ -199,9 +197,7 @@ end
             PSIS.check_pareto_khat(0.8)
         end
         msg = String(take!(io))
-        @test occursin(
-            "Warning: Pareto k-hat = 0.8 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg
-        )
+        @test occursin("Warning: Pareto k-hat = 0.8 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
@@ -221,8 +217,7 @@ end
             msg,
         )
         @test occursin(
-            "Warning: 1 parameters had Pareto k-hat > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)",
-            msg,
+            "Warning: 1 parameters had Pareto k-hat > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
         )
         @test occursin(
             "Warning: For 1 parameters, the generalized Pareto distribution could not be fit to the tail draws.",
