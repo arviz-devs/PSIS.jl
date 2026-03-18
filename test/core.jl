@@ -237,11 +237,12 @@ end
             basename = "normal_to_cauchy_r_eff_$(r_eff)"
             @test_reference(
                 "references/$basename.jld2",
-                Dict("log_weights" => logw, "pareto_khat" => result.pareto_khat),
+                Dict("log_weights" => logw, "pareto_khat" => result.pareto_khat, "ess_is" => result.ess_is),
                 by =
                     (ref, x) ->
                         isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
-                        isapprox(ref["pareto_shape"], x["pareto_khat"]; rtol=1e-6),
+                        isapprox(ref["pareto_khat"], x["pareto_khat"]; rtol=1e-6) &&
+                        isapprox(ref["ess_is"], x["ess_is"]; rtol=1e-6)
             )
         end
     end
