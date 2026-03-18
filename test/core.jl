@@ -11,20 +11,14 @@ using DimensionalData: Dimensions, DimArray
     @testset "vector log-weights" begin
         log_weights = randn(500)
         log_weights_norm = logsumexp(log_weights)
-        tail_length = 100
         r_eff = 2.0
-        tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, r_eff, tail_length, tail_dist)
+        pareto_shape = 0.5
+        result = PSISResult(log_weights, r_eff, pareto_shape)
         @test result isa PSISResult{Float64}
-        @test issetequal(
-            propertynames(result),
-            [:log_weights, :pareto_shape, :r_eff, :tail_dist, :tail_length],
-        )
+        @test issetequal(propertynames(result), [:log_weights, :pareto_shape, :r_eff])
         @test result.log_weights == log_weights
         @test result.r_eff == r_eff
-        @test result.tail_length == tail_length
-        @test result.tail_dist == tail_dist
-        @test result.pareto_shape == 0.5
+        @test result.pareto_shape == pareto_shape
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
@@ -41,18 +35,12 @@ using DimensionalData: Dimensions, DimArray
         log_weights .-= log_weights_norm
         tail_length = [1600, 1601, 1602]
         r_eff = [0.8, 0.9, 1.1]
-        tail_dist = [
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.5),
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
-        ]
-        result = PSISResult(log_weights, r_eff, tail_length, tail_dist)
+        pareto_shapes = [0.5, 0.6, 0.7]
+        result = PSISResult(log_weights, r_eff, pareto_shapes)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.r_eff == r_eff
-        @test result.tail_length == tail_length
-        @test result.tail_dist == tail_dist
-        @test result.pareto_shape == [0.5, 0.6, 0.7]
+        @test result.pareto_shape == pareto_shapes
 
         @testset "show" begin
             proposal = Normal()
@@ -100,22 +88,9 @@ end
                 logw = r.log_weights
                 @test logw isa typeof(logr)
 
-                if length(sz) > 1
-                    @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
-                else
-                    @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
-                end
-
                 k = r.pareto_shape
                 @test k isa (length(sz) < 3 ? Number : AbstractVector)
-                tail_dist = r.tail_dist
-                if length(sz) < 3
-                    @test tail_dist isa PSIS.GeneralizedPareto
-                    @test tail_dist.k == k
-                else
-                    @test tail_dist isa Vector{<:PSIS.GeneralizedPareto}
-                    @test map(d -> d.k, tail_dist) == k
-                end
+                @test r.pareto_shape == k
 
                 w = PSIS.importance_weights(logw)
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
@@ -173,7 +148,6 @@ end
             psis(logr)
         end
         @test result.log_weights == logr
-        @test isnan(result.tail_dist.σ)
         @test isnan(result.pareto_shape)
         msg = String(take!(io))
         @test occursin(
@@ -193,7 +167,6 @@ end
                 psis(logr)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
-            @test isnan(result.tail_dist.σ)
             @test isnan(result.pareto_shape)
             msg = String(take!(io))
             @test occursin("Warning: Tail contains non-finite values.", msg)
@@ -215,7 +188,7 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 1.1))
+            PSIS.check_pareto_shape(1.1)
         end
         msg = String(take!(io))
         @test occursin(
@@ -224,7 +197,7 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.8))
+            PSIS.check_pareto_shape(0.8)
         end
         msg = String(take!(io))
         @test occursin(
@@ -233,20 +206,15 @@ end
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.69))
+            PSIS.check_pareto_shape(0.69)
         end
         msg = String(take!(io))
         @test isempty(msg)
 
-        tail_dist = [
-            PSIS.GeneralizedPareto(0, NaN, NaN),
-            PSIS.GeneralizedPareto(0, 1, 0.69),
-            PSIS.GeneralizedPareto(0, 1, 0.71),
-            PSIS.GeneralizedPareto(0, 1, 1.1),
-        ]
+        khats = [NaN, 0.69, 0.71, 1.1]
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(tail_dist)
+            PSIS.check_pareto_shape(khats)
         end
         msg = String(take!(io))
         @test occursin(
@@ -311,7 +279,7 @@ end
             result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :r_eff)
+            for k in (:pareto_shape, :r_eff)
                 prop = getproperty(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
