@@ -175,7 +175,7 @@ julia> result = psis(log_ratios)
 ┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto k-hat (k) diagnostic values:
+Pareto k-hat diagnostic summary:
                         Count       Min. ESS
  (-Inf, 0.5]  good       7 (23.3%)  959
   (0.5, 0.7]  okay      13 (43.3%)  938
@@ -197,7 +197,7 @@ julia> result = psis(log_ratios, r_eff)
 ┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto k-hat (k) diagnostic values:
+Pareto k-hat diagnostic summary:
                         Count       Min. ESS
  (-Inf, 0.5]  good       9 (30.0%)  806
   (0.5, 0.7]  okay      11 (36.7%)  842
