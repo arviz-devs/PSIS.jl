@@ -14,12 +14,9 @@ const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are 
 
 Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
 
-# Properties
+# Fields
 
-  - `log_weights`: un-normalized Pareto-smoothed log weights
-  - `r_eff`: the ratio of the effective sample size of the unsmoothed importance ratios and
-    the actual sample size.
-  - `pareto_shape`: Pareto ``k=ξ`` shape parameter
+$(FIELDS)
 
 # Diagnostic
 
@@ -47,8 +44,12 @@ See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
 struct PSISResult{T,W<:AbstractArray{T},R,K}
+    """Un-normalized Pareto-smoothed log importance weights."""
     log_weights::W
+    """The ratio of the effective sample size of the unsmoothed importance ratios and
+    the actual sample size."""
     r_eff::R
+    """The Pareto ``k=ξ`` shape parameter."""
     pareto_shape::K
 end
 

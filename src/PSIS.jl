@@ -1,5 +1,6 @@
 module PSIS
 
+using DocStringExtensions: FIELDS
 using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
 using Statistics: Statistics
