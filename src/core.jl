@@ -1,13 +1,13 @@
 # range, description, condition
-const SHAPE_DIAGNOSTIC_CATEGORIES = (
+const KHAT_DIAGNOSTIC_CATEGORIES = (
     ("(-Inf, 0.5]", "good", ≤(0.5)),
     ("(0.5, 0.7]", "okay", x -> 0.5 < x ≤ 0.7),
     ("(0.7, 1]", "bad", x -> 0.7 < x ≤ 1),
     ("(1, Inf)", "very bad", >(1)),
     ("——", "failed", isnan),
 )
-const BAD_SHAPE_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
-const VERY_BAD_SHAPE_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
+const BAD_KHAT_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
+const VERY_BAD_KHAT_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
 
 """
     PSISResult
@@ -20,7 +20,7 @@ $(FIELDS)
 
 # Diagnostic
 
-The `pareto_shape` parameter ``k=ξ`` of the generalized Pareto distribution can
+The `pareto_khat` parameter ``k=ξ`` of the generalized Pareto distribution can
 be used to diagnose reliability and convergence of estimates using the importance weights
 [VehtariSimpson2021](@citep).
 
@@ -44,34 +44,34 @@ be used to diagnose reliability and convergence of estimates using the importanc
 struct PSISResult{T,W<:AbstractArray{T},K,E}
     """Un-normalized Pareto-smoothed log importance weights."""
     log_weights::W
-    """Normalized Pareto-smoothed importance weights."""
-    pareto_shape::K
-    """Estimated effective sample sizes."""
-    ess::E
+    """Pareto k-hat (shape) diagnostic."""
+    pareto_khat::K
+    """Estimated effective sample size for the importance weights."""
+    ess_is::E
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     (ndraws, nchains, nparams) = _sample_param_sizes(r.log_weights)
     println(io, "PSISResult with $ndraws draws, $nchains chains, and $nparams parameters")
-    return _print_pareto_shape_summary(io, r; newline_at_end=false)
+    return _print_pareto_khat_summary(io, r; newline_at_end=false)
 end
 
-function pareto_shape_summary(r::PSISResult; kwargs...)
-    return _print_pareto_shape_summary(stdout, r; kwargs...)
+function pareto_khat_summary(r::PSISResult; kwargs...)
+    return _print_pareto_khat_summary(stdout, r; kwargs...)
 end
 
-function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
-    k = as_array(pareto_shape(r))
-    ess = as_array(r.ess)
+function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
+    k = as_array(pareto_khat(r))
+    ess_is = as_array(r.ess_is)
     (_, _, nparams) = _sample_param_sizes(r.log_weights)
-    rows = map(SHAPE_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
+    rows = map(KHAT_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
         inds = findall(cond, k)
         count = length(inds)
         perc = 100 * count / nparams
         ess_min = if count == 0 || desc == "failed"
-            oftype(first(ess), NaN)
+            oftype(first(ess_is), NaN)
         else
-            minimum(view(ess, inds))
+            minimum(view(ess_is, inds))
         end
         return (range=range, desc=desc, count_perc=(count, perc), ess_min=ess_min)
     end
@@ -94,7 +94,7 @@ function _print_pareto_shape_summary(io::IO, r::PSISResult; kwargs...)
         floor(Int, log10(maximum(r -> r.count_perc[2], rows))) + 6,
     ]
 
-    println(io, "Pareto shape (k) diagnostic values:")
+    println(io, "Pareto k-hat diagnostic summary:")
     printstyled(
         io,
         col_padding,
@@ -170,12 +170,12 @@ julia> x = rand(proposal, 1_000, 1, 30);  # (ndraws, nchains, nparams)
 julia> log_ratios = @. logpdf(target, x) - logpdf(proposal, x);
 
 julia> result = psis(log_ratios)
-┌ Warning: 9 parameters had Pareto shape values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
+┌ Warning: 9 parameters had Pareto k-hat values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
 └ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto shape values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
+┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto shape (k) diagnostic values:
+Pareto k-hat (k) diagnostic values:
                         Count       Min. ESS
  (-Inf, 0.5]  good       7 (23.3%)  959
   (0.5, 0.7]  okay      13 (43.3%)  938
@@ -192,12 +192,12 @@ julia> using MCMCDiagnosticTools
 julia> r_eff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
 
 julia> result = psis(log_ratios, r_eff)
-┌ Warning: 9 parameters had Pareto shape values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
+┌ Warning: 9 parameters had Pareto k-hat values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
 └ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto shape values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
+┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto shape (k) diagnostic values:
+Pareto k-hat (k) diagnostic values:
                         Count       Min. ESS
  (-Inf, 0.5]  good       9 (30.0%)  806
   (0.5, 0.7]  okay      11 (36.7%)  842
@@ -218,7 +218,7 @@ function psis(logr, r_eff=1; warn::Bool=true, kwargs...)
     _, khat = _psis!(logw, r_eff; warn, kwargs...)
     ess = ess_is(logw, r_eff)
     result = PSISResult(logw, khat, ess)
-    warn && check_pareto_shape(result)
+    warn && check_pareto_khat(result)
     return result
 end
 
@@ -249,7 +249,7 @@ function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
         return logw, T(NaN)
     end
     _, tail_dist = _psis_tail!(logw_tail, logu)
-    k = T(pareto_shape(tail_dist))
+    k = T(pareto_khat(tail_dist))
     return logw, k
 end
 function _psis!(logw::AbstractMatrix, r_eff; kwargs...)
@@ -286,9 +286,9 @@ function _psis!(logw::AbstractArray, r_eff; warn::Bool=true)
     return logw, khats
 end
 
-pareto_shape(dist::GeneralizedPareto) = dist.k
-pareto_shape(r::PSISResult) = r.pareto_shape
-pareto_shape(dists) = map(pareto_shape, dists)
+pareto_khat(dist::GeneralizedPareto) = dist.k
+pareto_khat(r::PSISResult) = r.pareto_khat
+pareto_khat(dists) = map(pareto_khat, dists)
 
 function check_r_eff(r_eff)
     isvalid = all(r_eff) do r
@@ -298,24 +298,24 @@ function check_r_eff(r_eff)
     return nothing
 end
 
-check_pareto_shape(result::PSISResult) = check_pareto_shape(result.pareto_shape)
-function check_pareto_shape(k::Real)
+check_pareto_khat(result::PSISResult) = check_pareto_khat(result.pareto_khat)
+function check_pareto_khat(k::Real)
     if k > 1
-        @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_SHAPE_SUMMARY"
+        @warn "Pareto k-hat = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_KHAT_SUMMARY"
     elseif k > 0.7
-        @warn "Pareto shape k = $(@sprintf("%.2g", k)) > 0.7. $BAD_SHAPE_SUMMARY"
+        @warn "Pareto k-hat = $(@sprintf("%.2g", k)) > 0.7. $BAD_KHAT_SUMMARY"
     end
     return nothing
 end
-function check_pareto_shape(ks::AbstractArray{<:Real})
+function check_pareto_khat(ks::AbstractArray{<:Real})
     nnan = count(isnan, ks)
     ngt07 = count(>(0.7), ks)
     ngt1 = iszero(ngt07) ? ngt07 : count(>(1), ks)
     if ngt07 > ngt1
-        @warn "$(ngt07 - ngt1) parameters had Pareto shape values 0.7 < k ≤ 1. $BAD_SHAPE_SUMMARY"
+        @warn "$(ngt07 - ngt1) parameters had Pareto k-hat values in (0.7, 1]. $BAD_KHAT_SUMMARY"
     end
     if ngt1 > 0
-        @warn "$ngt1 parameters had Pareto shape values k > 1. $VERY_BAD_SHAPE_SUMMARY"
+        @warn "$ngt1 parameters had Pareto k-hat > 1. $VERY_BAD_KHAT_SUMMARY"
     end
     if nnan > 0
         @warn "For $nnan parameters, the generalized Pareto distribution could not be fit to the tail draws. Total number of draws should in general exceed 25, and the tail draws must be finite."
@@ -339,7 +339,7 @@ function _psis_tail!(logw, logμ)
     w_scaled = (logw .= exp.(logw .- logw_max) .- μ_scaled)
     tail_dist = fit_gpd(w_scaled; prior_adjusted=true, sorted=true)
     # undo the scaling
-    k = pareto_shape(tail_dist)
+    k = pareto_khat(tail_dist)
     if isfinite(k)
         p = uniform_probabilities(T, length(logw))
         @inbounds for i in eachindex(logw, p)

@@ -10,21 +10,21 @@ using DimensionalData: Dimensions, DimArray
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
-        ess = 300.0
-        pareto_shape = 0.5
-        result = PSISResult(log_weights, pareto_shape, ess)
+        ess_is = 300.0
+        pareto_khat = 0.5
+        result = PSISResult(log_weights, pareto_khat, ess_is)
         @test result isa PSISResult{Float64}
-        @test issetequal(propertynames(result), [:log_weights, :pareto_shape, :ess])
+        @test issetequal(propertynames(result), [:log_weights, :pareto_khat, :ess_is])
         @test result.log_weights == log_weights
-        @test result.pareto_shape == pareto_shape
-        @test result.ess == ess
+        @test result.pareto_khat == pareto_khat
+        @test result.ess_is == ess_is
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
-                Pareto shape (k) diagnostic values:
+                Pareto k-hat diagnostic summary:
                                     Count       Min. ESS
-                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess))"""
+                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess_is))"""
         end
     end
 
@@ -34,13 +34,13 @@ using DimensionalData: Dimensions, DimArray
         log_weights .-= log_weights_norm
         tail_length = [1600, 1601, 1602]
         r_eff = [0.8, 0.9, 1.1]
-        ess = [100.0, 101.0, 102.0]
-        pareto_shapes = [0.5, 0.6, 0.7]
-        result = PSISResult(log_weights, pareto_shapes, ess)
+        ess_is = [100.0, 101.0, 102.0]
+        pareto_khats = [0.5, 0.6, 0.7]
+        result = PSISResult(log_weights, pareto_khats, ess_is)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.pareto_shape == pareto_shapes
-        @test result.ess == ess
+        @test result.pareto_khat == pareto_khats
+        @test result.ess_is == ess_is
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
@@ -51,7 +51,7 @@ using DimensionalData: Dimensions, DimArray
             result = psis(log_ratios, r_eff)
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
-                Pareto shape (k) diagnostic values:
+                Pareto k-hat diagnostic summary:
                                        Count       Min. ESS
                  (0.5, 0.7]  okay       2 (6.7%)   99
                    (0.7, 1]  bad        2 (6.7%)   ——
@@ -87,9 +87,9 @@ end
                 logw = r.log_weights
                 @test logw isa typeof(logr)
 
-                k = r.pareto_shape
+                k = r.pareto_khat
                 @test k isa (length(sz) < 3 ? Number : AbstractVector)
-                @test r.pareto_shape == k
+                @test r.pareto_khat == k
 
                 w = PSIS.importance_weights(logw; are_log_weights=true)
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
@@ -147,7 +147,7 @@ end
             psis(logr)
         end
         @test result.log_weights == logr
-        @test isnan(result.pareto_shape)
+        @test isnan(result.pareto_khat)
         msg = String(take!(io))
         @test occursin(
             "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution.",
@@ -166,7 +166,7 @@ end
                 psis(logr)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
-            @test isnan(result.pareto_shape)
+            @test isnan(result.pareto_khat)
             msg = String(take!(io))
             @test occursin("Warning: Tail contains non-finite values.", msg)
         end
@@ -179,33 +179,33 @@ end
             psis(logr)
         end
         @test result.log_weights != logr
-        @test result.pareto_shape > 0.7
+        @test result.pareto_khat > 0.7
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape k = 0.72 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
+            "Warning: Pareto k-hat = 0.72 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(1.1)
+            PSIS.check_pareto_khat(1.1)
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape k = 1.1 > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)", msg
+            "Warning: Pareto k-hat = 1.1 > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(0.8)
+            PSIS.check_pareto_khat(0.8)
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape k = 0.8 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
+            "Warning: Pareto k-hat = 0.8 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(0.69)
+            PSIS.check_pareto_khat(0.69)
         end
         msg = String(take!(io))
         @test isempty(msg)
@@ -213,15 +213,15 @@ end
         khats = [NaN, 0.69, 0.71, 1.1]
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(khats)
+            PSIS.check_pareto_khat(khats)
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: 1 parameters had Pareto shape values 0.7 < k ≤ 1. $(PSIS.BAD_SHAPE_SUMMARY)",
+            "Warning: 1 parameters had Pareto k-hat values in (0.7, 1]. $(PSIS.BAD_KHAT_SUMMARY)",
             msg,
         )
         @test occursin(
-            "Warning: 1 parameters had Pareto shape values k > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)",
+            "Warning: 1 parameters had Pareto k-hat > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)",
             msg,
         )
         @test occursin(
@@ -246,11 +246,11 @@ end
             basename = "normal_to_cauchy_r_eff_$(r_eff)"
             @test_reference(
                 "references/$basename.jld2",
-                Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
+                Dict("log_weights" => logw, "pareto_khat" => result.pareto_khat),
                 by =
                     (ref, x) ->
                         isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
-                        isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
+                        isapprox(ref["pareto_shape"], x["pareto_khat"]; rtol=1e-6),
             )
         end
     end
@@ -278,7 +278,7 @@ end
             result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            @testset for k in (:pareto_shape, :ess)
+            @testset for k in (:pareto_khat, :ess_is)
                 prop = getproperty(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
