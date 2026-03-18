@@ -91,7 +91,7 @@ end
                 @test k isa (length(sz) < 3 ? Number : AbstractVector)
                 @test r.pareto_khat == k
 
-                w = PSIS.importance_weights(logw; are_log_weights=true)
+                w = softmax(logw; dims=min(2, length(sz)))
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(

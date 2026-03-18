@@ -16,7 +16,7 @@ using Test
     @test PSIS.ess_is(logw, r_eff) ≈ r_eff
 
     logw = randn(100, 4, 3)
-    w = PSIS.importance_weights(logw; are_log_weights=true)
+    w = softmax(logw; dims=(1, 2))
     dims = (1, 2)
     @test PSIS.ess_is(logw, r_eff) ≈ r_eff ./ dropdims(sum(abs2, w; dims); dims)
     r_eff = rand(3)

@@ -34,8 +34,3 @@ function _selectparam(x::AbstractArray, i::CartesianIndex)
     sample_dims = ntuple(_ -> Colon(), ndims(x) - length(i))
     return view(x, sample_dims..., i)
 end
-
-function importance_weights(w::AbstractArray; are_log_weights::Bool=false)
-    are_log_weights || return w
-    return LogExpFunctions.softmax(w; dims=_sample_dims(w))
-end
