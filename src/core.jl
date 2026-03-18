@@ -43,14 +43,14 @@ See [`PSISPlots.paretoshapeplot`](@ref) for a diagnostic plot.
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
-struct PSISResult{T,W<:AbstractArray{T},R,K}
+struct PSISResult{T,W<:AbstractArray{T},K,R}
     """Un-normalized Pareto-smoothed log importance weights."""
     log_weights::W
+    """The Pareto ``k=ξ`` shape parameter."""
+    pareto_shape::K
     """The ratio of the effective sample size of the unsmoothed importance ratios and
     the actual sample size."""
     r_eff::R
-    """The Pareto ``k=ξ`` shape parameter."""
-    pareto_shape::K
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
@@ -233,7 +233,7 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        return PSISResult(logw, r_eff_val, T(NaN))
+        return PSISResult(logw, T(NaN), r_eff_val)
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -243,17 +243,17 @@ function psis!(logw::AbstractVecOrMat, r_eff=1; warn::Bool=true)
     if !all(isfinite, logw_tail)
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        return PSISResult(logw, r_eff_val, T(NaN))
+        return PSISResult(logw, T(NaN), r_eff_val)
     end
     _, tail_dist = psis_tail!(logw_tail, logu)
-    result = PSISResult(logw, r_eff_val, pareto_shape(tail_dist))
+    result = PSISResult(logw, pareto_shape(tail_dist), r_eff_val)
     warn && check_pareto_shape(result)
     return result
 end
 function psis!(logw::AbstractMatrix, r_eff=1; kwargs...)
     result = psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
-    return PSISResult(logw, result.r_eff, result.pareto_shape)
+    return PSISResult(logw, result.pareto_shape, result.r_eff)
 end
 function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
     T = typeof(float(one(eltype(logw))))
@@ -282,7 +282,7 @@ function psis!(logw::AbstractArray, r_eff=1; warn::Bool=true)
     end
 
     # combine results
-    result = PSISResult(logw, r_effs, khats)
+    result = PSISResult(logw, khats, r_effs)
 
     # warn for bad shape
     warn && check_pareto_shape(result)

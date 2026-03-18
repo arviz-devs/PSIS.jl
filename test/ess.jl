@@ -16,11 +16,11 @@ using Test
     @test ess_is(w; r_eff) ≈ 1 .* r_eff
 
     logw = randn(100)
-    result = PSISResult(logw, 1.5, 0.6)
+    result = PSISResult(logw, 0.6, 1.5)
     weights = PSIS.importance_weights(logw)
     @test ess_is(result) ≈ ess_is(weights; r_eff=1.5)
 
-    result = PSISResult(logw, 1.5, 0.71)
+    result = PSISResult(logw, 0.71, 1.5)
     @test isnan(ess_is(result))
     weights = PSIS.importance_weights(logw)
     @test ess_is(result; bad_shape_nan=false) ≈ ess_is(weights; r_eff=1.5)
@@ -28,7 +28,7 @@ using Test
     logw = randn(100, 4, 3)
     khats = [0.69, 0.71, NaN]
     r_eff = [1.5, 0.8, 1.0]
-    result = PSISResult(logw, r_eff, khats)
+    result = PSISResult(logw, khats, r_eff)
     ess = ess_is(result)
     @test ess isa Vector
     @test length(ess) == 3

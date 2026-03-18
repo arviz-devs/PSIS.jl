@@ -13,7 +13,7 @@ using DimensionalData: Dimensions, DimArray
         log_weights_norm = logsumexp(log_weights)
         r_eff = 2.0
         pareto_shape = 0.5
-        result = PSISResult(log_weights, r_eff, pareto_shape)
+        result = PSISResult(log_weights, pareto_shape, r_eff)
         @test result isa PSISResult{Float64}
         @test issetequal(propertynames(result), [:log_weights, :pareto_shape, :r_eff])
         @test result.log_weights == log_weights
@@ -36,7 +36,7 @@ using DimensionalData: Dimensions, DimArray
         tail_length = [1600, 1601, 1602]
         r_eff = [0.8, 0.9, 1.1]
         pareto_shapes = [0.5, 0.6, 0.7]
-        result = PSISResult(log_weights, r_eff, pareto_shapes)
+        result = PSISResult(log_weights, pareto_shapes, r_eff)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
         @test result.r_eff == r_eff
