@@ -170,9 +170,9 @@ julia> x = rand(proposal, 1_000, 1, 30);  # (ndraws, nchains, nparams)
 julia> log_ratios = @. logpdf(target, x) - logpdf(proposal, x);
 
 julia> result = psis(log_ratios)
-┌ Warning: 9 parameters had Pareto k-hat values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
+┌ Warning: 9 parameters had Pareto k-hat values in (0.7, 1]. Resulting importance sampling estimates are likely to be unstable.
 └ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
+┌ Warning: 1 parameters had Pareto k-hat > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
 Pareto k-hat diagnostic summary:
@@ -192,9 +192,9 @@ julia> using MCMCDiagnosticTools
 julia> r_eff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
 
 julia> result = psis(log_ratios, r_eff)
-┌ Warning: 9 parameters had Pareto k-hat values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
+┌ Warning: 9 parameters had Pareto k-hat values in (0.7, 1]. Resulting importance sampling estimates are likely to be unstable.
 └ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto k-hat values k > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
+┌ Warning: 1 parameters had Pareto k-hat > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
 └ @ PSIS ~/.julia/packages/PSIS/...
 PSISResult with 1000 draws, 1 chains, and 30 parameters
 Pareto k-hat diagnostic summary:
