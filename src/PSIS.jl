@@ -10,6 +10,7 @@ export psis
 
 include("utils.jl")
 include("generalized_pareto.jl")
+include("diagnose.jl")
 include("core.jl")
 include("ess.jl")
 
