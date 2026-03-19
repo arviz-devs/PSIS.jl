@@ -357,7 +357,7 @@ function _psis_tail_right!(x, cutoff; is_log_scale::Bool=false, smooth::Bool=fal
 
         if is_log_scale
             # undo the scaling
-            x .= min.(log.(x), 0) .+ x_max
+            x .= log.(x) .+ x_max
         end
     end
 
