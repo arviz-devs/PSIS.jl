@@ -244,7 +244,7 @@ function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
         return logw, T(NaN)
     end
-    _, tail_dist = _psis_tail!(logw_tail, logu)
+    _, tail_dist = _psis_tail_right!(logw_tail, logu; is_log_scale=true, smooth=true)
     k = T(pareto_khat(tail_dist))
     return logw, k
 end
@@ -325,22 +325,41 @@ function tail_length(r_eff, S)
     return min(max_length, min_length)
 end
 
-function _psis_tail!(logw, logμ)
-    T = eltype(logw)
-    logw_max = logw[end]
-    # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
-    # equivalent to scaling the weights to have a maximum of 1.
-    μ_scaled = exp(logμ - logw_max)
-    w_scaled = (logw .= exp.(logw .- logw_max) .- μ_scaled)
-    tail_dist = fit_gpd(w_scaled; prior_adjusted=true, sorted=true)
-    # undo the scaling
-    k = pareto_khat(tail_dist)
-    if isfinite(k)
-        p = uniform_probabilities(T, length(logw))
-        @inbounds for i in eachindex(logw, p)
-            # undo scaling in the log-weights
-            logw[i] = min(log(quantile(tail_dist, p[i]) + μ_scaled), 0) + logw_max
+# smooth the right tail of x, assuming x is in ascending order and cutoff is smaller than all values in x.
+# if smooth is true, x is smoothed in-place
+# if smooth is false, x is treated as workspace, and values are undefined.
+function _psis_tail_right!(x, cutoff; is_log_scale::Bool=false, smooth::Bool=false)
+    T = eltype(x)
+    x_max = x[end]
+
+    if is_log_scale
+        # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
+        # equivalent to scaling the weights to have a maximum of 1.
+        @. x = exp(x - x_max)
+        cutoff = exp(cutoff - x_max)
+    end
+
+    # shift x so that cutoff is 0
+    x .-= cutoff
+
+    # fit the generalized Pareto distribution to the tail
+    tail_dist = fit_gpd(x; prior_adjusted=true, sorted=true)
+
+    if smooth
+        k = pareto_khat(tail_dist)
+        if isfinite(k)
+            p = uniform_probabilities(T, length(x))
+            x .= quantile.(Ref(tail_dist), p)
+        end
+
+        # undo the shift
+        x .+= cutoff
+
+        if is_log_scale
+            # undo the scaling
+            x .= min.(log.(x), 0) .+ x_max
         end
     end
-    return logw, tail_dist
+
+    return x, tail_dist
 end
