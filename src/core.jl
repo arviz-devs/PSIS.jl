@@ -56,10 +56,6 @@ function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     return _print_pareto_khat_summary(io, r; newline_at_end=false)
 end
 
-function pareto_khat_summary(r::PSISResult; kwargs...)
-    return _print_pareto_khat_summary(stdout, r; kwargs...)
-end
-
 function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_khat(r))
     ess_is = as_array(r.ess_is)
@@ -288,7 +284,6 @@ end
 
 pareto_khat(dist::GeneralizedPareto) = dist.k
 pareto_khat(r::PSISResult) = r.pareto_khat
-pareto_khat(dists) = map(pareto_khat, dists)
 
 function check_r_eff(r_eff)
     isvalid = all(r_eff) do r
