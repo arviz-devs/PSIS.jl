@@ -29,8 +29,10 @@ GeneralizedPareto(μ, σ, k) = GeneralizedPareto(Base.promote(μ, σ, k)...)
 
 function quantile(d::GeneralizedPareto{T}, p::Real) where {T<:Real}
     nlog1pp = -log1p(-p * one(T))
+    S = typeof(nlog1pp)
     k = d.k
-    z = abs(k) < eps() ? nlog1pp : expm1(k * nlog1pp) / k
+    # first-order Taylor expansion of expm1(k * nlog1pp) / k around k = 0
+    z = abs(k) < eps(S) ? nlog1pp * (1 + k * nlog1pp / 2) : expm1(k * nlog1pp) / k
     return muladd(d.σ, z, d.μ)
 end
 
