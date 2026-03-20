@@ -1,8 +1,20 @@
 # API
 
-## Core functionality
+## Pareto diagnostics
 
 ```@docs
-PSISResult
+pareto_diagnose
+```
+
+## Pareto-smoothing
+
+```@docs
+pareto_smooth
+```
+
+## Pareto-smoothed importance sampling
+
+```@docs
 psis
+PSISResult
 ```

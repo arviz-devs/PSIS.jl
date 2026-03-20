@@ -6,7 +6,7 @@ using Printf: @sprintf
 using Statistics: Statistics
 
 export PSISResult
-export psis
+export pareto_diagnose, pareto_smooth, psis
 
 include("utils.jl")
 include("generalized_pareto.jl")
