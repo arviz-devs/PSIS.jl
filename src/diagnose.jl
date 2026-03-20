@@ -11,7 +11,7 @@ function pareto_diagnose(
     return diagnostics
 end
 
-function pareto_diagnose!(x::AbstractArray; r_eff::Union{Real, AbstractArray}=1, kwargs...)
+function pareto_diagnose!(x::AbstractArray; r_eff::Union{Real,AbstractArray}=1, kwargs...)
     khat = broadcast(eachslice(x; dims=_param_dims(x)), r_eff) do x_i, r_eff_i
         khat_i = _pareto_diagnose!(x_i; r_eff=r_eff_i, kwargs...)
         return khat_i

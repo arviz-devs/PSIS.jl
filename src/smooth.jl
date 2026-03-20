@@ -1,5 +1,6 @@
-function pareto_smooth(x::AbstractArray;
-    r_eff::Union{Real, AbstractArray}=1,
+function pareto_smooth(
+    x::AbstractArray;
+    r_eff::Union{Real,AbstractArray}=1,
     is_log_scale::Bool=false,
     tail::Symbol=(is_log_scale ? :right : :both),
 )
