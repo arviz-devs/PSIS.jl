@@ -41,13 +41,22 @@ be used to diagnose reliability and convergence of estimates using the importanc
 
   - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
 """
-struct PSISResult{T,W<:AbstractArray{T},K,E}
+struct PSISResult{
+    T<:Real,
+    W<:AbstractArray{T},
+    D<:Union{T,AbstractArray{T}},
+    L<:Union{Int,AbstractArray{Int}},
+}
     """Un-normalized Pareto-smoothed log importance weights."""
     log_weights::W
+    """Original unsmoothed log importance ratios."""
+    log_ratios::W
     """Pareto k-hat (shape) diagnostic."""
-    pareto_khat::K
+    pareto_khat::D
     """Estimated effective sample size for the importance weights."""
-    ess_is::E
+    ess_is::D
+    """Length of the right tail that was smoothed."""
+    tail_length::L
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
@@ -208,18 +217,20 @@ Pareto k-hat diagnostic summary:
 psis
 
 function psis(logr, r_eff=1; warn::Bool=true, kwargs...)
-    T = float(eltype(logr))
+    T = typeof(float(one(eltype(logr))))
+    log_ratios = similar(logr, T)
+    copyto!(log_ratios, logr)
     logw = similar(logr, T)
     copyto!(logw, logr)
-    _, khat = _psis!(logw, r_eff; warn, kwargs...)
+    _, khat, tail_length = _psis!(logw, r_eff; warn, kwargs...)
     ess = ess_is(logw, r_eff)
-    result = PSISResult(logw, khat, ess)
+    result = PSISResult(logw, log_ratios, khat, ess, tail_length)
     warn && check_pareto_khat(result)
     return result
 end
 
 function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
-    T = typeof(float(one(eltype(logw))))
+    T = eltype(logw)
     if length(r_eff) != 1
         throw(
             DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1")
@@ -232,7 +243,7 @@ function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
     if M < 5
         warn &&
             @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        return logw, T(NaN)
+        return logw, T(NaN), M
     end
     perm = partialsortperm(logw, (S - M):S)
     cutoff_ind = perm[1]
@@ -242,19 +253,19 @@ function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
     if !all(isfinite, logw_tail)
         warn &&
             @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        return logw, T(NaN)
+        return logw, T(NaN), M
     end
     _, tail_dist = _psis_tail_right!(logw_tail, logu; is_log_scale=true, smooth=true)
     k = T(pareto_khat(tail_dist))
-    return logw, k
+    return logw, k, M
 end
 function _psis!(logw::AbstractMatrix, r_eff; kwargs...)
-    _, k = _psis!(vec(logw), r_eff; kwargs...)
+    _, k, M = _psis!(vec(logw), r_eff; kwargs...)
     # unflatten log_weights
-    return logw, k
+    return logw, k, M
 end
 function _psis!(logw::AbstractArray, r_eff; warn::Bool=true)
-    T = typeof(float(one(eltype(logw))))
+    T = eltype(logw)
     # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
     param_axes = _param_axes(logw)
     param_shape = map(length, param_axes)
@@ -271,15 +282,15 @@ function _psis!(logw::AbstractArray, r_eff; warn::Bool=true)
     r_effs = similar(logw, eltype(r_eff), param_axes)
     r_effs .= r_eff
     khats = similar(logw, T, param_axes)
+    tail_lengths = similar(logw, Int, param_axes)
 
     # call psis! in parallel for all parameters
     Threads.@threads for i in _eachparamindex(logw)
         logw_i = _selectparam(logw, i)
-        _, k = _psis!(logw_i, r_effs[i]; warn=false)
-        khats[i] = k
+        _, khats[i], tail_lengths[i] = _psis!(logw_i, r_effs[i]; warn=false)
     end
 
-    return logw, khats
+    return logw, khats, tail_lengths
 end
 
 pareto_khat(dist::GeneralizedPareto) = dist.k

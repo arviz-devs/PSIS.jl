@@ -10,14 +10,17 @@ using DimensionalData: Dimensions, DimArray
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
+        log_ratios = randn(500)
         ess_is = 300.0
         pareto_khat = 0.5
-        result = PSISResult(log_weights, pareto_khat, ess_is)
+        tail_length = 20
+        result = PSISResult(log_weights, log_ratios, pareto_khat, ess_is, tail_length)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
+        @test result.log_ratios == log_ratios
         @test result.pareto_khat == pareto_khat
         @test result.ess_is == ess_is
-
+        @test result.tail_length == tail_length
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
@@ -29,14 +32,18 @@ using DimensionalData: Dimensions, DimArray
 
     @testset "array log-weights" begin
         log_weights = randn(500, 4, 3)
+        log_ratios = randn(500, 4, 3)
         r_eff = [0.8, 0.9, 1.1]
         ess_is = [100.0, 101.0, 102.0]
         pareto_khats = [0.5, 0.6, 0.7]
-        result = PSISResult(log_weights, pareto_khats, ess_is)
+        tail_lengths = [20, 21, 22]
+        result = PSISResult(log_weights, log_ratios, pareto_khats, ess_is, tail_lengths)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
+        @test result.log_ratios == log_ratios
         @test result.pareto_khat == pareto_khats
         @test result.ess_is == ess_is
+        @test result.tail_length == tail_lengths
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
