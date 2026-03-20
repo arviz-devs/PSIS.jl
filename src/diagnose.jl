@@ -1,19 +1,46 @@
 function pareto_diagnose(
-    x::AbstractVecOrMat;
+    x::AbstractArray;
     r_eff::Real=1,
     is_log_scale::Bool=false,
     tail::Symbol=(is_log_scale ? :right : :both),
 )
-    x_work = similar(x)
+    T = float(eltype(x))
+    x_work = similar(x, T)
     copyto!(x_work, x)
-    khat = _pareto_diagnose!(x_work; r_eff, is_log_scale, tail, smooth=false)
-    n = length(x)
-    return (;
+    _, diagnostics = pareto_diagnose!(x_work; r_eff, is_log_scale, tail, smooth=false)
+    return diagnostics
+end
+
+function pareto_diagnose!(x::AbstractArray; r_eff::Union{Real, AbstractArray}=1, kwargs...)
+    khat = broadcast(eachslice(x; dims=_param_dims(x)), r_eff) do x_i, r_eff_i
+        khat_i = _pareto_diagnose!(x_i; r_eff=r_eff_i, kwargs...)
+        return khat_i
+    end
+    n = prod(Base.Fix1(size, x), _sample_dims(x))
+    diagnostics = (;
         khat,
-        min_ss=minimum_sample_size(khat),
+        khat_threshold=convert(eltype(khat), khat_threshold(n)),
+        min_ss=minimum_sample_size.(khat),
+        convergence_rate=convergence_rate.(khat, n),
+    )
+    return x, diagnostics
+end
+function pareto_diagnose!(
+    x::AbstractVecOrMat;
+    r_eff::Real=1,
+    is_log_scale::Bool=false,
+    tail::Symbol=(is_log_scale ? :right : :both),
+    smooth::Bool=false,
+)
+    khat = _pareto_diagnose!(x; r_eff, is_log_scale, tail, smooth)
+    n = length(x)
+    diagnostics = (;
+        khat,
         khat_threshold=oftype(khat, khat_threshold(n)),
+        min_ss=minimum_sample_size(khat),
         convergence_rate=convergence_rate(khat, n),
     )
+    return x, diagnostics
 end
 
 function minimum_sample_size(k::Real)
