@@ -32,6 +32,3 @@ result # hide
 ```
 
 As indicated by the warnings, this is a poor choice of a proposal distribution, and estimates are unlikely to converge (see [`PSISResult`](@ref) for an explanation of the shape thresholds).
-
-When running PSIS with many parameters, it is useful to plot the Pareto shape values to diagnose convergence.
-See [Plotting PSIS results](@ref) for examples.

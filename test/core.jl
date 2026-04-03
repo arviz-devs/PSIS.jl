@@ -10,81 +10,44 @@ using DimensionalData: Dimensions, DimArray
 @testset "PSISResult" begin
     @testset "vector log-weights" begin
         log_weights = randn(500)
-        log_weights_norm = logsumexp(log_weights)
-        tail_length = 100
-        reff = 2.0
-        tail_dist = PSIS.GeneralizedPareto(1.0, 1.0, 0.5)
-        result = PSISResult(log_weights, reff, tail_length, tail_dist, false)
+        ess_is = 300.0
+        pareto_khat = 0.5
+        result = PSISResult(log_weights, pareto_khat, ess_is)
         @test result isa PSISResult{Float64}
-        @test issetequal(
-            propertynames(result),
-            [
-                :log_weights,
-                :nchains,
-                :ndraws,
-                :normalized,
-                :nparams,
-                :pareto_shape,
-                :reff,
-                :tail_dist,
-                :tail_length,
-                :weights,
-            ],
-        )
         @test result.log_weights == log_weights
-        @test result.weights ≈ softmax(log_weights)
-        @test result.reff == reff
-        @test result.nparams == 1
-        @test result.ndraws == 500
-        @test result.nchains == 1
-        @test result.tail_length == tail_length
-        @test result.tail_dist == tail_dist
-        @test result.pareto_shape == 0.5
-        @test result.ess ≈ ess_is(result)
+        @test result.pareto_khat == pareto_khat
+        @test result.ess_is == ess_is
 
         @testset "show" begin
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
-                Pareto shape (k) diagnostic values:
+                Pareto k-hat diagnostic summary:
                                     Count       Min. ESS
-                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, result.ess))"""
+                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess_is))"""
         end
     end
 
     @testset "array log-weights" begin
         log_weights = randn(500, 4, 3)
-        log_weights_norm = logsumexp(log_weights; dims=(1, 2))
-        log_weights .-= log_weights_norm
-        tail_length = [1600, 1601, 1602]
-        reff = [0.8, 0.9, 1.1]
-        tail_dist = [
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.5),
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.6),
-            PSIS.GeneralizedPareto(1.0, 1.0, 0.7),
-        ]
-        result = PSISResult(log_weights, reff, tail_length, tail_dist, true)
+        r_eff = [0.8, 0.9, 1.1]
+        ess_is = [100.0, 101.0, 102.0]
+        pareto_khats = [0.5, 0.6, 0.7]
+        result = PSISResult(log_weights, pareto_khats, ess_is)
         @test result isa PSISResult{Float64}
         @test result.log_weights == log_weights
-        @test result.weights ≈ softmax(log_weights; dims=(1, 2))
-        @test result.reff == reff
-        @test result.nparams == 3
-        @test result.ndraws == 500
-        @test result.nchains == 4
-        @test result.tail_length == tail_length
-        @test result.tail_dist == tail_dist
-        @test result.pareto_shape == [0.5, 0.6, 0.7]
-
+        @test result.pareto_khat == pareto_khats
+        @test result.ess_is == ess_is
         @testset "show" begin
             proposal = Normal()
             target = TDist(7)
             rng = StableRNG(42)
             x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
-            reff = [100; ones(29)]
-            result = psis(log_ratios, reff)
+            r_eff = [100; ones(29)]
+            result = psis(log_ratios, r_eff)
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
-                Pareto shape (k) diagnostic values:
+                Pareto k-hat diagnostic summary:
                                        Count       Min. ESS
                  (0.5, 0.7]  okay       2 (6.7%)   99
                    (0.7, 1]  bad        2 (6.7%)   ——
@@ -94,7 +57,7 @@ using DimensionalData: Dimensions, DimArray
     end
 end
 
-@testset "psis/psis!" begin
+@testset "psis" begin
     @testset "importance sampling tests" begin
         target = Exponential(1)
         x_target = 1  # 𝔼[x] with x ~ Exponential(1)
@@ -119,30 +82,12 @@ end
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
-                @test exp.(logw) == r.weights
 
-                r2 = psis(logr; normalize=false)
-                @test !(r2.log_weights ≈ r.log_weights)
-                @test r2.weights ≈ r.weights
-
-                if length(sz) > 1
-                    @test all(r.tail_length .== PSIS.tail_length(1, 400_000))
-                else
-                    @test all(r.tail_length .== PSIS.tail_length(1, 100_000))
-                end
-
-                k = r.pareto_shape
+                k = r.pareto_khat
                 @test k isa (length(sz) < 3 ? Number : AbstractVector)
-                tail_dist = r.tail_dist
-                if length(sz) < 3
-                    @test tail_dist isa PSIS.GeneralizedPareto
-                    @test tail_dist.k == k
-                else
-                    @test tail_dist isa Vector{<:PSIS.GeneralizedPareto}
-                    @test map(d -> d.k, tail_dist) == k
-                end
+                @test r.pareto_khat == k
 
-                w = r.weights
+                w = softmax(logw; dims=1:min(2, length(sz)))
                 @test all(x -> isapprox(x, k_exp; atol=0.15), k)
                 @test all(x -> isapprox(x, x_target; atol=atol), sum(x .* w; dims=dims))
                 @test all(
@@ -152,29 +97,29 @@ end
         end
     end
 
-    @testset "reff combinations" begin
-        reffs_uniform = [rand(), fill(rand()), [rand()]]
+    @testset "r_eff combinations" begin
+        r_effs_uniform = [rand(), fill(rand()), [rand()]]
         x = randn(1000)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         @test_throws DimensionMismatch psis(x, rand(2))
 
         x = randn(1000, 4)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         @test_throws DimensionMismatch psis(x, rand(2))
 
         x = randn(1000, 4, 2)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         psis(x, rand(2))
         @test_throws DimensionMismatch psis(x, rand(3))
 
         x = randn(1000, 4, 2, 3)
-        for r in reffs_uniform
+        for r in r_effs_uniform
             psis(x, r)
         end
         psis(x, rand(2, 3))
@@ -189,17 +134,16 @@ end
                 psis(logr, rbad)
             end
             msg = String(take!(io))
-            @test occursin("All values of `reff` should be finite, but some are not.", msg)
+            @test occursin("All values of `r_eff` should be finite, but some are not.", msg)
         end
 
         io = IOBuffer()
         logr = randn(5)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr; normalize=false)
+            psis(logr)
         end
         @test result.log_weights == logr
-        @test isnan(result.tail_dist.σ)
-        @test isnan(result.pareto_shape)
+        @test isnan(result.pareto_khat)
         msg = String(take!(io))
         @test occursin(
             "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution.",
@@ -215,11 +159,10 @@ end
             vcat(ones(50), fill(-Inf, 435)),
         ]
             result = with_logger(SimpleLogger(io)) do
-                psis(logr; normalize=false)
+                psis(logr)
             end
             @test skipnan(result.log_weights) == skipnan(logr)
-            @test isnan(result.tail_dist.σ)
-            @test isnan(result.pareto_shape)
+            @test isnan(result.pareto_khat)
             msg = String(take!(io))
             @test occursin("Warning: Tail contains non-finite values.", msg)
         end
@@ -229,58 +172,48 @@ end
         x = rand(rng, Exponential(50), 1_000)
         logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
         result = with_logger(SimpleLogger(io)) do
-            psis(logr; normalize=false)
+            psis(logr)
         end
         @test result.log_weights != logr
-        @test result.pareto_shape > 0.7
+        @test result.pareto_khat > 0.7
         msg = String(take!(io))
-        @test occursin(
-            "Warning: Pareto shape k = 0.72 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
-        )
+        @test occursin("Warning: Pareto k-hat = 0.72 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 1.1))
+            PSIS.check_pareto_khat(1.1)
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: Pareto shape k = 1.1 > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)", msg
+            "Warning: Pareto k-hat = 1.1 > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
         )
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.8))
+            PSIS.check_pareto_khat(0.8)
         end
         msg = String(take!(io))
-        @test occursin(
-            "Warning: Pareto shape k = 0.8 > 0.7. $(PSIS.BAD_SHAPE_SUMMARY)", msg
-        )
+        @test occursin("Warning: Pareto k-hat = 0.8 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
 
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(PSIS.GeneralizedPareto(0.0, 1.0, 0.69))
+            PSIS.check_pareto_khat(0.69)
         end
         msg = String(take!(io))
         @test isempty(msg)
 
-        tail_dist = [
-            PSIS.GeneralizedPareto(0, NaN, NaN),
-            PSIS.GeneralizedPareto(0, 1, 0.69),
-            PSIS.GeneralizedPareto(0, 1, 0.71),
-            PSIS.GeneralizedPareto(0, 1, 1.1),
-        ]
+        khats = [NaN, 0.69, 0.71, 1.1]
         io = IOBuffer()
         with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_shape(tail_dist)
+            PSIS.check_pareto_khat(khats)
         end
         msg = String(take!(io))
         @test occursin(
-            "Warning: 1 parameters had Pareto shape values 0.7 < k ≤ 1. $(PSIS.BAD_SHAPE_SUMMARY)",
+            "Warning: 1 parameters had Pareto k-hat values in (0.7, 1]. $(PSIS.BAD_KHAT_SUMMARY)",
             msg,
         )
         @test occursin(
-            "Warning: 1 parameters had Pareto shape values k > 1. $(PSIS.VERY_BAD_SHAPE_SUMMARY)",
-            msg,
+            "Warning: 1 parameters had Pareto k-hat > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
         )
         @test occursin(
             "Warning: For 1 parameters, the generalized Pareto distribution could not be fit to the tail draws.",
@@ -298,17 +231,22 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = @inferred psis(logr, r_effs; normalize=false)
+            result = @inferred psis(logr, r_effs)
             logw = result.log_weights
             @test !isapprox(logw, logr)
-            basename = "normal_to_cauchy_reff_$(r_eff)"
+            basename = "normal_to_cauchy_r_eff_$(r_eff)"
             @test_reference(
                 "references/$basename.jld2",
-                Dict("log_weights" => logw, "pareto_shape" => result.pareto_shape),
+                Dict(
+                    "log_weights" => logw,
+                    "pareto_khat" => result.pareto_khat,
+                    "ess_is" => result.ess_is,
+                ),
                 by =
                     (ref, x) ->
                         isapprox(ref["log_weights"], x["log_weights"]; rtol=1e-6) &&
-                            isapprox(ref["pareto_shape"], x["pareto_shape"]; rtol=1e-6),
+                        isapprox(ref["pareto_khat"], x["pareto_khat"]; rtol=1e-6) &&
+                        isapprox(ref["ess_is"], x["ess_is"]; rtol=1e-6)
             )
         end
     end
@@ -336,8 +274,8 @@ end
             result = @inferred psis(logr)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
-            for k in (:pareto_shape, :tail_length, :tail_dist, :reff)
-                prop = getproperty(result, k)
+            @testset for k in (:pareto_khat, :ess_is)
+                prop = getfield(result, k)
                 @test prop isa DimArray
                 @test Dimensions.dims(prop) == Dimensions.dims(logr, (:param,))
             end

@@ -6,5 +6,4 @@ using Test
     include("generalized_pareto.jl")
     include("core.jl")
     include("ess.jl")
-    include("plots.jl")
 end
