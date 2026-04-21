@@ -1,6 +1,6 @@
 name = "PSIS"
 uuid = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
-version = "0.9.8"
+version = "0.9.9"
 authors = ["Seth Axen <seth.axen@gmail.com> and contributors"]
 
 [deps]
