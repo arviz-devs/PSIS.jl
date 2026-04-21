@@ -9,7 +9,8 @@ Given normalized weights ``w_{1:n}``, the ESS is estimated using the L2-norm of 
 \\mathrm{ESS}(w_{1:n}) = \\frac{r_{\\mathrm{eff}}}{\\sum_{i=1}^n w_i^2}
 ```
 
-where ``r_{\\mathrm{eff}}`` is the relative efficiency of the `log_weights`.
+where ``r_{\\mathrm{eff}}`` is the relative efficiency of the inverse of the unsmoothed
+importance ratios (see [`psis`](@ref)).
 
     ess_is(result::PSISResult; bad_shape_nan=true)
 

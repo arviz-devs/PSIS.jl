@@ -22,8 +22,8 @@ Result of Pareto-smoothed importance sampling (PSIS) using [`psis`](@ref).
   - `nparams`: number of parameters in `log_weights`
   - `ndraws`: number of draws in `log_weights`
   - `nchains`: number of chains in `log_weights`
-  - `reff`: the ratio of the effective sample size of the unsmoothed importance ratios and
-    the actual sample size.
+  - `reff`: the ratio of the effective sample size of the inverse of the unsmoothed
+    importance ratios and the actual sample size.
   - `ess`: estimated effective sample size of estimate of mean using smoothed importance
     samples (see [`ess_is`](@ref))
   - `tail_length`: length of the upper tail of `log_weights` that was smoothed
@@ -186,10 +186,11 @@ While `psis` computes smoothed log weights out-of-place, `psis!` smooths them in
   - `log_ratios`: an array of logarithms of importance ratios, with size
     `(draws, [chains, [parameters...]])`, where `chains>1` would be used when chains are
     generated using Markov chain Monte Carlo.
-  - `reff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
-    `log_ratios` and the actual sample size `reff = ess/(draws * chains)`, used to account
-    for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
-    size `(parameters...,)` to match `log_ratios`.
+  - `reff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of the inverse
+    of the unsmoothed importance ratios `1 ./ exp.(log_ratios)` and the actual sample size
+    `reff = ess/(draws * chains)`, used to account for autocorrelation, e.g. due to Markov
+    chain Monte Carlo. If an array, it must have the size `(parameters...,)` to match
+    `log_ratios`.
 
 # Keywords
 
@@ -236,9 +237,9 @@ If the draws were generated using MCMC, we can compute the relative efficiency u
 [`MCMCDiagnosticTools.ess`](@extref).
 
 ```jldoctest psis
-julia> using MCMCDiagnosticTools
+julia> using LogExpFunctions, MCMCDiagnosticTools
 
-julia> reff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
+julia> reff = ess(softmax(-log_ratios; dims=(1, 2)); kind=:basic, split_chains=1, relative=true);
 
 julia> result = psis(log_ratios, reff)
 ┌ Warning: 9 parameters had Pareto shape values 0.7 < k ≤ 1. Resulting importance sampling estimates are likely to be unstable.
@@ -248,8 +249,8 @@ julia> result = psis(log_ratios, reff)
 PSISResult with 1000 draws, 1 chains, and 30 parameters
 Pareto shape (k) diagnostic values:
                         Count       Min. ESS
- (-Inf, 0.5]  good       9 (30.0%)  806
-  (0.5, 0.7]  okay      11 (36.7%)  842
+ (-Inf, 0.5]  good      10 (33.3%)  835
+  (0.5, 0.7]  okay      10 (33.3%)  849
     (0.7, 1]  bad        9 (30.0%)  ——
     (1, Inf)  very bad   1 (3.3%)   ——
 ```
