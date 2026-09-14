@@ -7,6 +7,7 @@ using Test
     include("diagnostics.jl")
     include("tails.jl")
     include("diagnose.jl")
+    include("smooth.jl")
     include("core.jl")
     include("ess.jl")
 end
