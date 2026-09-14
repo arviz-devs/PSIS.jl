@@ -18,11 +18,12 @@ function ess_is(log_weights::AbstractArray, r_eff)
     return ess_is.(eachslice(log_weights; dims), r_eff)
 end
 function ess_is(log_weights::AbstractVecOrMat, r_eff)
+    isempty(log_weights) && return float(eltype(log_weights))(NaN)
     lw_max = maximum(log_weights)
     T = typeof(exp(zero(typeof(lw_max))))
     s1, s2 = reduce(log_weights; init=(zero(T), zero(T))) do (s1, s2), lw
         d = lw - lw_max
         return (s1 + exp(d), s2 + exp(2 * d))
     end
-    return r_eff * s1^2 / s2
+    return first(r_eff) * s1^2 / s2
 end

@@ -139,9 +139,11 @@ function _warn_diagnostics(k, n)
     nfailed = count(isnan, k)
     nfailed > 0 &&
         @warn "For $nfailed variables, the generalized Pareto distribution could not be fit to the tail draws."
-    threshold = n > 1 ? min(0.7, ps_khat_threshold(n)) : NaN
+    threshold = _psis_threshold(n)
     nbad = count(>(threshold), k)
     nbad > 0 &&
         @warn "$nbad variables have Pareto k-hat above $threshold; Pareto-smoothed estimates may be unstable or have high bias."
     return nothing
 end
+
+_psis_threshold(n) = n > 1 ? min(0.7, ps_khat_threshold(n)) : NaN

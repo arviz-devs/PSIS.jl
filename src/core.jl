@@ -1,14 +1,3 @@
-# range, description, condition
-const KHAT_DIAGNOSTIC_CATEGORIES = (
-    ("(-Inf, 0.5]", "good", ≤(0.5)),
-    ("(0.5, 0.7]", "okay", x -> 0.5 < x ≤ 0.7),
-    ("(0.7, 1]", "bad", x -> 0.7 < x ≤ 1),
-    ("(1, Inf)", "very bad", >(1)),
-    ("——", "failed", isnan),
-)
-const BAD_KHAT_SUMMARY = "Resulting importance sampling estimates are likely to be unstable."
-const VERY_BAD_KHAT_SUMMARY = "Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples."
-
 """
     PSISResult
 
@@ -20,33 +9,26 @@ $(FIELDS)
 
 # Diagnostic
 
-The `pareto_khat` parameter ``k=ξ`` of the generalized Pareto distribution can
-be used to diagnose reliability and convergence of estimates using the importance weights
-[VehtariSimpson2021](@citep).
+The fitted shape diagnoses the raw importance ratios. A result is considered
+reliable when `k <= min(0.7, 1 - 1/log10(n))`, where `n` pools draws and chains.
+The `ess_is` field is `NaN` for unreliable or failed fits. This does not establish
+reliability for every possible expectand.
 
-  - if ``k < \\frac{1}{3}``, importance sampling is stable, and importance sampling (IS) and
-    PSIS both are reliable.
-  - if ``k ≤ \\frac{1}{2}``, then the importance ratio distributon has finite variance, and
-    the central limit theorem holds. As ``k`` approaches the upper bound, IS becomes less
-    reliable, while PSIS still works well but with a higher RMSE.
-  - if ``\\frac{1}{2} < k ≤ 0.7``, then the variance is infinite, and IS can behave quite
-    poorly. However, PSIS works well in this regime.
-  - if ``0.7 < k ≤ 1``, then it quickly becomes impractical to collect enough importance
-    weights to reliably compute estimates, and importance sampling is not recommended.
-  - if ``k > 1``, then neither the variance nor the mean of the raw importance ratios
-    exists. The convergence rate is close to zero, and bias can be large with practical
-    sample sizes.
-
-# References
-
-  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
+Use [`pareto_diagnose`](@ref) on a result to obtain additional diagnostics without
+refitting. See [VehtariSimpson2021](@citep).
 """
 struct PSISResult{T,W<:AbstractArray{T},K,E}
-    """Un-normalized Pareto-smoothed log importance weights."""
+    """
+    Un-normalized Pareto-smoothed log importance weights.
+    """
     log_weights::W
-    """Pareto k-hat (shape) diagnostic."""
+    """
+    Pareto k-hat (shape) diagnostic.
+    """
     pareto_khat::K
-    """Estimated effective sample size for the importance weights."""
+    """
+    Estimated effective sample size; NaN for unreliable or failed fits.
+    """
     ess_is::E
 end
 
@@ -60,7 +42,19 @@ function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
     k = as_array(pareto_khat(r))
     ess_is = as_array(r.ess_is)
     (_, _, nparams) = _sample_param_sizes(r.log_weights)
-    rows = map(KHAT_DIAGNOSTIC_CATEGORIES) do (range, desc, cond)
+    if isempty(k)
+        print(io, "No parameter diagnostics.")
+        return nothing
+    end
+    threshold = _psis_threshold(_sample_size(r.log_weights))
+    label = @sprintf("%.3g", threshold)
+    categories = (
+        ("(-Inf, $label]", "good", <=(threshold)),
+        ("($label, 1]", "bad", k -> threshold < k <= 1),
+        ("(1, Inf)", "very bad", >(1)),
+        ("——", "failed", isnan),
+    )
+    rows = map(categories) do (range, desc, cond)
         inds = findall(cond, k)
         count = length(inds)
         perc = 100 * count / nparams
@@ -74,7 +68,6 @@ function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
     rows = filter(r -> r.count_perc[1] > 0, rows)
     formats = Dict(
         "good" => (),
-        "okay" => (; color=:yellow),
         "bad" => (bold=true, color=:light_red),
         "very bad" => (bold=true, color=:red),
         "failed" => (; color=:red),
@@ -112,7 +105,7 @@ function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
         format = formats[r.desc]
         printstyled(io, _pad_left(count, col_widths[3]); format...)
         printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
-        ess_min_string = if isfinite(r.ess_min) && r.desc ∈ ("good", "okay")
+        ess_min_string = if isfinite(r.ess_min) && r.desc == "good"
             string(floor(Int, r.ess_min))
         else
             "——"
@@ -126,221 +119,75 @@ _pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
 _pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 """
-    psis(log_ratios, r_eff = 1.0; kwargs...) -> PSISResult
+    psis(log_ratios, r_eff=1; warn=true, tail_length=nothing) -> PSISResult
 
-Compute Pareto smoothed importance sampling (PSIS) log-weights [VehtariSimpson2021](@citep).
+Compute unnormalized Pareto-smoothed log importance weights. The array shape is
+`(draws[, chains[, parameters...]])`. Input values are never modified.
 
-# Arguments
+`r_eff` must be positive and finite, either a scalar or an array matching the
+parameter dimensions. It controls tail length and adjusts the generic weight
+ESS. The default assumes independent draws. For LOO, a common convention is the
+relative efficiency of the inverse ratios; select an appropriate efficiency
+estimate for the sampling procedure.
 
-  - `log_ratios`: an array of logarithms of importance ratios, with size
-    `(draws, [chains, [parameters...]])`, where `chains>1` would be used when chains are
-    generated using Markov chain Monte Carlo.
-  - `r_eff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of the inverse of the
-    unsmoothed importance ratios and the actual sample size `r_eff = ess/(draws * chains)`, used to account
-    for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
-    size `(parameters...,)` to match `log_ratios`.
+`tail_length` optionally specifies the number of right-tail observations.
+Otherwise use `floor(min(n/5, 3sqrt(n/r_eff)))`, pooling draws and chains.
+Weights are capped at the largest observed raw ratio, as in Algorithm 1 of
+[VehtariSimpson2021](@citet).
 
-# Keywords
-
-  - `warn=true`: If `true`, warning messages are delivered
-
-# Returns
-
-  - `result`: a [`PSISResult`](@ref) object containing the results of the Pareto-smoothing.
-
-A warning is raised if the Pareto k-hat parameter ``k ≥ 0.7``. See [`PSISResult`](@ref) for
-details.
+A warning is emitted when a tail cannot be fitted or its k-hat exceeds
+`min(0.7, 1 - 1/log10(n))`. Set `warn=false` to silence these warnings.
+Unreliable or failed fits have `NaN` ESS. See [`PSISResult`](@ref).
 
 # Examples
 
-Here we smooth log importance ratios for importance sampling 30 isotropic Student
-``t``-distributed parameters using standard normal distributions as proposals.
+```jldoctest
+julia> log_ratios = collect(range(-1.0, 0.0; length=1000));
 
-```jldoctest psis; setup = :(using Random; Random.seed!(42))
-julia> using Distributions
+julia> result = psis(log_ratios; warn=false);
 
-julia> proposal, target = Normal(), TDist(7);
+julia> size(result.log_weights)
+(1000,)
 
-julia> x = rand(proposal, 1_000, 1, 30);  # (ndraws, nchains, nparams)
+julia> maximum(result.log_weights) <= maximum(log_ratios)
+true
 
-julia> log_ratios = @. logpdf(target, x) - logpdf(proposal, x);
-
-julia> result = psis(log_ratios)
-┌ Warning: 9 parameters had Pareto k-hat values in (0.7, 1]. Resulting importance sampling estimates are likely to be unstable.
-└ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto k-hat > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
-└ @ PSIS ~/.julia/packages/PSIS/...
-PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto k-hat diagnostic summary:
-                        Count       Min. ESS
- (-Inf, 0.5]  good       7 (23.3%)  959
-  (0.5, 0.7]  okay      13 (43.3%)  938
-    (0.7, 1]  bad        9 (30.0%)  ——
-    (1, Inf)  very bad   1 (3.3%)   ——
+julia> pareto_diagnose(result).khat == result.pareto_khat
+true
 ```
 
-If the draws were generated using MCMC, we can compute the relative efficiency using
-[`MCMCDiagnosticTools.ess`](@extref).
+For MCMC-based LOO, relative efficiency can be computed explicitly using
+[`MCMCDiagnosticTools.ess`](@extref):
 
-```jldoctest psis
-julia> using LogExpFunctions, MCMCDiagnosticTools
-
-julia> r_eff = ess(softmax(-log_ratios; dims=(1, 2)); kind=:basic, split_chains=1, relative=true);
-
-julia> result = psis(log_ratios, r_eff)
-┌ Warning: 9 parameters had Pareto k-hat values in (0.7, 1]. Resulting importance sampling estimates are likely to be unstable.
-└ @ PSIS ~/.julia/packages/PSIS/...
-┌ Warning: 1 parameters had Pareto k-hat > 1. Corresponding importance sampling estimates are likely to be unstable and are unlikely to converge with additional samples.
-└ @ PSIS ~/.julia/packages/PSIS/...
-PSISResult with 1000 draws, 1 chains, and 30 parameters
-Pareto k-hat diagnostic summary:
-                        Count       Min. ESS
- (-Inf, 0.5]  good      10 (33.3%)  835
-  (0.5, 0.7]  okay      10 (33.3%)  849
-    (0.7, 1]  bad        9 (30.0%)  ——
-    (1, Inf)  very bad   1 (3.3%)   ——
+```julia
+using LogExpFunctions, MCMCDiagnosticTools
+r_eff = ess(softmax(-log_ratios; dims=(1, 2)); kind=:basic, split_chains=1, relative=true)
+result = psis(log_ratios, r_eff)
 ```
 
-# References
-
-  - [VehtariSimpson2021](@cite) Vehtari et al. JMLR 25:72 (2021).
+Normalize only when needed, for example with
+`softmax(result.log_weights; dims=(1, 2))` for matrix or batched draws.
 """
-psis
-
-function psis(logr, r_eff=1; warn::Bool=true, kwargs...)
-    T = float(eltype(logr))
-    logw = similar(logr, T)
-    copyto!(logw, logr)
-    _, khat = _psis!(logw, r_eff; warn, kwargs...)
+function psis(logr::AbstractArray{<:Real}, r_eff=1; warn::Bool=true, tail_length=nothing)
+    logw, diagnostics = pareto_smooth(
+        logr; r_eff, is_log_scale=true, tail=:right, tail_length, warn
+    )
+    k = diagnostics.khat
+    threshold = _psis_threshold(_sample_size(logr))
     ess = ess_is(logw, r_eff)
-    result = PSISResult(logw, khat, ess)
-    warn && check_pareto_khat(result)
-    return result
-end
-
-function _psis!(logw::AbstractVecOrMat, r_eff; warn::Bool=true)
-    T = typeof(float(one(eltype(logw))))
-    if length(r_eff) != 1
-        throw(
-            DimensionMismatch("`r_eff` has length $(length(r_eff)) but must have length 1")
-        )
-    end
-    warn && check_r_eff(r_eff)
-    S = length(logw)
-    r_eff_val = first(r_eff)
-    M = tail_length(r_eff_val, S)
-    if M < 5
-        warn &&
-            @warn "$M tail draws is insufficient to fit the generalized Pareto distribution. Total number of draws should in general exceed 25."
-        return logw, T(NaN)
-    end
-    perm = partialsortperm(logw, (S - M):S)
-    cutoff_ind = perm[1]
-    tail_inds = @view perm[2:(M + 1)]
-    logu = logw[cutoff_ind]
-    logw_tail = @views logw[tail_inds]
-    if !all(isfinite, logw_tail)
-        warn &&
-            @warn "Tail contains non-finite values. Generalized Pareto distribution cannot be reliably fit."
-        return logw, T(NaN)
-    end
-    _, tail_dist = _psis_tail!(logw_tail, logu)
-    k = T(pareto_khat(tail_dist))
-    return logw, k
-end
-function _psis!(logw::AbstractMatrix, r_eff; kwargs...)
-    _, k = _psis!(vec(logw), r_eff; kwargs...)
-    # unflatten log_weights
-    return logw, k
-end
-function _psis!(logw::AbstractArray, r_eff; warn::Bool=true)
-    T = typeof(float(one(eltype(logw))))
-    # if an array defines custom indices (e.g. AbstractDimArray), we preserve them
-    param_axes = _param_axes(logw)
-    param_shape = map(length, param_axes)
-    if !(length(r_eff) == 1 || size(r_eff) == param_shape)
-        throw(
-            DimensionMismatch(
-                "`r_eff` has shape $(size(r_eff)) but must have same shape as the parameter axes $(param_shape)",
-            ),
-        )
-    end
-    check_r_eff(r_eff)
-
-    # allocate containers
-    r_effs = similar(logw, eltype(r_eff), param_axes)
-    r_effs .= r_eff
-    khats = similar(logw, T, param_axes)
-
-    # call psis! in parallel for all parameters
-    Threads.@threads for i in _eachparamindex(logw)
-        logw_i = _selectparam(logw, i)
-        _, k = _psis!(logw_i, r_effs[i]; warn=false)
-        khats[i] = k
-    end
-
-    return logw, khats
+    reliable_ess = ifelse.(isfinite.(k) .& (k .<= threshold), ess, oftype.(ess, NaN))
+    return PSISResult(logw, k, reliable_ess)
 end
 
 pareto_khat(dist::GeneralizedPareto) = dist.k
 pareto_khat(r::PSISResult) = r.pareto_khat
 
-function check_r_eff(r_eff)
-    isvalid = all(r_eff) do r
-        return isfinite(r) && r > 0
-    end
-    isvalid || @warn "All values of `r_eff` should be finite, but some are not."
-    return nothing
-end
+"""
+    pareto_diagnose(result::PSISResult)
 
-check_pareto_khat(result::PSISResult) = check_pareto_khat(result.pareto_khat)
-function check_pareto_khat(k::Real)
-    if k > 1
-        @warn "Pareto k-hat = $(@sprintf("%.2g", k)) > 1. $VERY_BAD_KHAT_SUMMARY"
-    elseif k > 0.7
-        @warn "Pareto k-hat = $(@sprintf("%.2g", k)) > 0.7. $BAD_KHAT_SUMMARY"
-    end
-    return nothing
-end
-function check_pareto_khat(ks::AbstractArray{<:Real})
-    nnan = count(isnan, ks)
-    ngt07 = count(>(0.7), ks)
-    ngt1 = iszero(ngt07) ? ngt07 : count(>(1), ks)
-    if ngt07 > ngt1
-        @warn "$(ngt07 - ngt1) parameters had Pareto k-hat values in (0.7, 1]. $BAD_KHAT_SUMMARY"
-    end
-    if ngt1 > 0
-        @warn "$ngt1 parameters had Pareto k-hat > 1. $VERY_BAD_KHAT_SUMMARY"
-    end
-    if nnan > 0
-        @warn "For $nnan parameters, the generalized Pareto distribution could not be fit to the tail draws. Total number of draws should in general exceed 25, and the tail draws must be finite."
-    end
-    return nothing
-end
-
-function tail_length(r_eff, S)
-    max_length = cld(S, 5)
-    (isfinite(r_eff) && r_eff > 0) || return max_length
-    min_length = ceil(Int, 3 * sqrt(S / r_eff))
-    return min(max_length, min_length)
-end
-
-function _psis_tail!(logw, logμ)
-    T = eltype(logw)
-    logw_max = logw[end]
-    # to improve numerical stability, we first shift the log-weights to have a maximum of 0,
-    # equivalent to scaling the weights to have a maximum of 1.
-    μ_scaled = exp(logμ - logw_max)
-    w_scaled = (logw .= exp.(logw .- logw_max) .- μ_scaled)
-    tail_dist = fit_gpd(w_scaled; prior_adjusted=true, sorted=true)
-    # undo the scaling
-    k = pareto_khat(tail_dist)
-    if isfinite(k)
-        p = uniform_probabilities(T, length(logw))
-        @inbounds for i in eachindex(logw, p)
-            # undo scaling in the log-weights
-            logw[i] = min(log(quantile(tail_dist, p[i]) + μ_scaled), 0) + logw_max
-        end
-    end
-    return logw, tail_dist
+Return diagnostics from the saved raw-ratio k-hat and sample size, without
+refitting the smoothed weights.
+"""
+function pareto_diagnose(r::PSISResult)
+    return _pareto_diagnostics(r.pareto_khat, _sample_size(r.log_weights))
 end
