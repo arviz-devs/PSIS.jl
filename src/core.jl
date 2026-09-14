@@ -135,8 +135,8 @@ Compute Pareto smoothed importance sampling (PSIS) log-weights [VehtariSimpson20
   - `log_ratios`: an array of logarithms of importance ratios, with size
     `(draws, [chains, [parameters...]])`, where `chains>1` would be used when chains are
     generated using Markov chain Monte Carlo.
-  - `r_eff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of
-    `log_ratios` and the actual sample size `r_eff = ess/(draws * chains)`, used to account
+  - `r_eff::Union{Real,AbstractArray}`: the ratio(s) of effective sample size of the inverse of the
+    unsmoothed importance ratios and the actual sample size `r_eff = ess/(draws * chains)`, used to account
     for autocorrelation, e.g. due to Markov chain Monte Carlo. If an array, it must have the
     size `(parameters...,)` to match `log_ratios`.
 
@@ -183,9 +183,9 @@ If the draws were generated using MCMC, we can compute the relative efficiency u
 [`MCMCDiagnosticTools.ess`](@extref).
 
 ```jldoctest psis
-julia> using MCMCDiagnosticTools
+julia> using LogExpFunctions, MCMCDiagnosticTools
 
-julia> r_eff = ess(log_ratios; kind=:basic, split_chains=1, relative=true);
+julia> r_eff = ess(softmax(-log_ratios; dims=(1, 2)); kind=:basic, split_chains=1, relative=true);
 
 julia> result = psis(log_ratios, r_eff)
 ┌ Warning: 9 parameters had Pareto k-hat values in (0.7, 1]. Resulting importance sampling estimates are likely to be unstable.
@@ -195,8 +195,8 @@ julia> result = psis(log_ratios, r_eff)
 PSISResult with 1000 draws, 1 chains, and 30 parameters
 Pareto k-hat diagnostic summary:
                         Count       Min. ESS
- (-Inf, 0.5]  good       9 (30.0%)  806
-  (0.5, 0.7]  okay      11 (36.7%)  842
+ (-Inf, 0.5]  good      10 (33.3%)  835
+  (0.5, 0.7]  okay      10 (33.3%)  849
     (0.7, 1]  bad        9 (30.0%)  ——
     (1, Inf)  very bad   1 (3.3%)   ——
 ```
