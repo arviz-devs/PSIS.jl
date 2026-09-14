@@ -8,11 +8,14 @@ using Statistics: Statistics
 export PSISResult
 export psis
 export ps_min_ss, ps_khat_threshold, ps_convergence_rate
+export pareto_khat,
+    pareto_diagnose, pareto_min_ss, pareto_khat_threshold, pareto_convergence_rate
 
 include("utils.jl")
 include("generalized_pareto.jl")
 include("diagnostics.jl")
 include("tails.jl")
+include("diagnose.jl")
 include("core.jl")
 include("ess.jl")
 
