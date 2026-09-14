@@ -22,6 +22,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Diagnostics and smoothing" => "diagnostics.md",
         "API" => "api.md",
         "Internal" => "internal.md",
         "References" => "references.md",

@@ -10,6 +10,10 @@ Given a set of importance weights used in some estimator, PSIS both improves the
 
 See [`psis`](@ref) for details.
 
+For standalone tail diagnostics and generic smoothing, see
+[Diagnosing and smoothing tails](@ref). These implement the diagnostics in
+version 9 of the PSIS paper, independently of importance sampling.
+
 ## Example
 
 In this example, we use PSIS to smooth log importance ratios for importance sampling 30 isotropic Student ``t``-distributed parameters using standard normal distributions as proposals.
