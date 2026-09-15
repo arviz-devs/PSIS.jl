@@ -10,8 +10,7 @@ using DimensionalData: DimArray, Dimensions
     original = copy(x)
     d = @inferred pareto_diagnose(x)
     @test x == original
-    @test d isa NamedTuple
-    @test keys(d) == (:khat, :khat_threshold, :min_ss, :convergence_rate)
+    @test d isa ParetoDiagnostics
     @test d.khat ≈ 1/3 atol=0.1
     @test (@inferred pareto_khat(x)) == d.khat
     @test pareto_min_ss(x) == d.min_ss
@@ -32,6 +31,20 @@ using DimensionalData: DimArray, Dimensions
     @test_throws ArgumentError pareto_khat(x; tail_length=4)
     @test_throws ArgumentError pareto_khat(x; tail_length=length(x))
     @test_throws ArgumentError pareto_khat(x; tail_length=length(x) ÷ 2)
+
+    @testset "show" begin
+        diagnostics = ParetoDiagnostics(
+            [-0.1, 0.8, 1.1, NaN], 0.7, [10.0, 100.0, Inf, NaN], [1.0, 0.4, 0.0, NaN]
+        )
+        shown = sprint(show, MIME"text/plain"(), diagnostics)
+        @test startswith(shown, "ParetoDiagnostics with 4 parameters")
+        @test occursin("Pareto k-hat diagnostic summary:", shown)
+        @test occursin(r"good\s+1 \(25.0%\)", shown)
+        @test occursin(r"bad\s+1 \(25.0%\)", shown)
+        @test occursin(r"very bad\s+1 \(25.0%\)", shown)
+        @test occursin(r"failed\s+1 \(25.0%\)", shown)
+        @test !occursin("Min. ESS", shown)
+    end
 
     @testset "failure is quiet and explicit" begin
         for values in

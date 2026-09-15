@@ -5,7 +5,7 @@ using LogExpFunctions: LogExpFunctions
 using Printf: @sprintf
 using Statistics: Statistics
 
-export PSISResult
+export PSISResult, ParetoDiagnostics
 export psis
 export pareto_smooth
 export ps_min_ss, ps_khat_threshold, ps_convergence_rate
@@ -17,6 +17,7 @@ include("generalized_pareto.jl")
 include("diagnostics.jl")
 include("tails.jl")
 include("diagnose.jl")
+include("summary.jl")
 include("smooth.jl")
 include("core.jl")
 include("ess.jl")

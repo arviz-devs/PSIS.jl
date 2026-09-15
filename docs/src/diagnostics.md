@@ -19,7 +19,7 @@ pareto_diagnose(x)
 The first two dimensions are draws and chains. Additional dimensions describe
 variables. `pareto_khat(x)` returns just the largest of the fitted left/right
 tail shapes. `tail=:left` and `tail=:right` select one tail. `pareto_diagnose`
-returns a named tuple containing:
+returns a `ParetoDiagnostics` record containing:
 
 - `khat`: the estimated shape;
 - `khat_threshold`: `1 - 1/log10(n)`, using the pooled sample size;
@@ -44,17 +44,16 @@ r_eff = ess(x; kind=:tail, relative=true)
 pareto_diagnose(x; r_eff)
 ```
 
-Scalar diagnostic functions and the named-tuple diagnostic function can be passed
-to `PosteriorStats.summarize`. No dependency on PosteriorStats is required in PSIS.
+Scalar diagnostic functions can be passed to `PosteriorStats.summarize`. No
+dependency on PosteriorStats is required in PSIS.
 
 ```julia
 using PosteriorStats, PSIS, Statistics, MCMCDiagnosticTools
 summarize(draws, mean, std, pareto_khat)
-summarize(draws, pareto_diagnose)
 
 # Explicitly account for MCMC dependence, separately for each variable:
-mcmc_pareto(x) = pareto_diagnose(x; r_eff=ess(x; kind=:tail, relative=true))
-summarize(draws, mcmc_pareto)
+mcmc_pareto_khat(x) = pareto_khat(x; r_eff=ess(x; kind=:tail, relative=true))
+summarize(draws, :pareto_khat => mcmc_pareto_khat)
 ```
 
 For several diagnostics at once, `pareto_diagnose` reuses a single fit per tail.

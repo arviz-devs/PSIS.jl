@@ -35,88 +35,9 @@ end
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     (ndraws, nchains, nparams) = _sample_param_sizes(r.log_weights)
     println(io, "PSISResult with $ndraws draws, $nchains chains, and $nparams parameters")
-    return _print_pareto_khat_summary(io, r; newline_at_end=false)
-end
-
-function _print_pareto_khat_summary(io::IO, r::PSISResult; kwargs...)
-    k = as_array(pareto_khat(r))
-    ess_is = as_array(r.ess_is)
-    (_, _, nparams) = _sample_param_sizes(r.log_weights)
-    if isempty(k)
-        print(io, "No parameter diagnostics.")
-        return nothing
-    end
     threshold = _psis_threshold(_sample_size(r.log_weights))
-    label = @sprintf("%.3g", threshold)
-    categories = (
-        ("(-Inf, $label]", "good", <=(threshold)),
-        ("($label, 1]", "bad", k -> threshold < k <= 1),
-        ("(1, Inf)", "very bad", >(1)),
-        ("——", "failed", isnan),
-    )
-    rows = map(categories) do (range, desc, cond)
-        inds = findall(cond, k)
-        count = length(inds)
-        perc = 100 * count / nparams
-        ess_min = if count == 0 || desc == "failed"
-            oftype(first(ess_is), NaN)
-        else
-            minimum(view(ess_is, inds))
-        end
-        return (range=range, desc=desc, count_perc=(count, perc), ess_min=ess_min)
-    end
-    rows = filter(r -> r.count_perc[1] > 0, rows)
-    formats = Dict(
-        "good" => (),
-        "bad" => (bold=true, color=:light_red),
-        "very bad" => (bold=true, color=:red),
-        "failed" => (; color=:red),
-    )
-
-    col_padding = " "
-    col_delim = ""
-    col_delim_tot = col_padding * col_delim * col_padding
-    col_widths = [
-        maximum(r -> length(r.range), rows),
-        maximum(r -> length(r.desc), rows),
-        maximum(r -> ndigits(r.count_perc[1]), rows),
-        floor(Int, log10(maximum(r -> r.count_perc[2], rows))) + 6,
-    ]
-
-    println(io, "Pareto k-hat diagnostic summary:")
-    printstyled(
-        io,
-        col_padding,
-        " "^col_widths[1],
-        col_delim_tot,
-        " "^col_widths[2],
-        col_delim_tot,
-        _pad_right("Count", col_widths[3] + col_widths[4] + 1),
-        col_delim_tot,
-        "Min. ESS";
-        bold=true,
-    )
-    for r in rows
-        count, perc = r.count_perc
-        perc_str = "($(round(perc; digits=1))%)"
-        println(io)
-        print(io, col_padding, _pad_left(r.range, col_widths[1]), col_delim_tot)
-        print(io, _pad_right(r.desc, col_widths[2]), col_delim_tot)
-        format = formats[r.desc]
-        printstyled(io, _pad_left(count, col_widths[3]); format...)
-        printstyled(io, " ", _pad_right(perc_str, col_widths[4]); format...)
-        ess_min_string = if isfinite(r.ess_min) && r.desc == "good"
-            string(floor(Int, r.ess_min))
-        else
-            "——"
-        end
-        print(io, col_delim_tot, ess_min_string)
-    end
-    return nothing
+    return _print_pareto_khat_summary(io, r.pareto_khat, threshold; ess_is=r.ess_is)
 end
-
-_pad_left(s, nchars) = " "^(nchars - length("$s")) * "$s"
-_pad_right(s, nchars) = "$s" * " "^(nchars - length("$s"))
 
 """
     psis(log_ratios, r_eff=1; warn=true, tail_length=nothing) -> PSISResult

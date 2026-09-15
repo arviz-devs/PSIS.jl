@@ -10,6 +10,7 @@ using Test
     @test 0.5 < result.pareto_khat < 0.7
     @test isnan(result.ess_is)
     smoothed, diag = pareto_smooth(logr; is_log_scale=true)
+    @test diag isa ParetoDiagnostics
     @test result.log_weights == smoothed
     @test result.pareto_khat == diag.khat
     @test_logs psis(logr; warn=false)
@@ -34,6 +35,7 @@ using Test
     batch = @test_logs psis(batched; warn=false)
     @test all(isnan, batch.ess_is)
     @test size(batch.pareto_khat) == (3,)
+    @test pareto_diagnose(batch) isa ParetoDiagnostics
     @test pareto_diagnose(batch).khat == batch.pareto_khat
     @test pareto_diagnose(batch).khat_threshold == ps_khat_threshold(200)
 end

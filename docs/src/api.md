@@ -10,6 +10,7 @@ psis
 ## Tail diagnostics and smoothing
 
 ```@docs
+ParetoDiagnostics
 pareto_khat
 pareto_diagnose
 pareto_smooth

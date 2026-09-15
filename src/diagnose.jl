@@ -1,4 +1,40 @@
 """
+    ParetoDiagnostics
+
+Pareto tail diagnostics returned by [`pareto_diagnose`](@ref) and
+[`pareto_smooth`](@ref).
+
+# Fields
+
+$(FIELDS)
+"""
+struct ParetoDiagnostics{K,T<:Real,M,C}
+    """
+    Estimated Pareto shape for each variable.
+    """
+    khat::K
+    """
+    Sample-size-dependent maximum k-hat for a reliable smoothed estimate.
+    """
+    khat_threshold::T
+    """
+    Heuristic minimum sample size for a Pareto-smoothed estimate.
+    """
+    min_ss::M
+    """
+    Estimated relative RMSE convergence rate.
+    """
+    convergence_rate::C
+end
+
+function Base.:(==)(a::ParetoDiagnostics, b::ParetoDiagnostics)
+    return a.khat == b.khat &&
+           a.khat_threshold == b.khat_threshold &&
+           a.min_ss == b.min_ss &&
+           a.convergence_rate == b.convergence_rate
+end
+
+"""
     pareto_khat(x; r_eff=1, tail=:both, is_log_scale=false, tail_length=nothing, warn=false)
 
 Estimate Pareto k-hat from the selected tail(s) of observations `x`, without
@@ -48,11 +84,11 @@ end
 """
     pareto_diagnose(x; kwargs...)
 
-Return `(khat, khat_threshold, min_ss, convergence_rate)` as a named tuple.
-Keywords are those of [`pareto_khat`](@ref). Each variable is fitted once.
-The threshold uses the pooled number of draws, while the remaining fields have
-one value per variable. Scalar and named-tuple outputs can be used as summary
-functions, including with `PosteriorStats.summarize`.
+Return a [`ParetoDiagnostics`](@ref) result containing `khat`, `khat_threshold`,
+`min_ss`, and `convergence_rate`. Keywords are those of [`pareto_khat`](@ref).
+Each variable is fitted once. The threshold uses the pooled number of draws,
+while the remaining fields have one value per variable. The scalar diagnostic
+functions can also be used as summary functions.
 
 These diagnose tail behavior; they do not replace MCMC convergence diagnostics.
 The minimum sample size and convergence rate describe a Pareto-smoothed estimate.
@@ -65,7 +101,7 @@ function _pareto_diagnostics(k, n)
     T = eltype(k)
     threshold = n > 1 ? T(ps_khat_threshold(n)) : T(NaN)
     rate = n > 1 ? ps_convergence_rate.(k, n) : oftype.(k, NaN)
-    return (; khat=k, khat_threshold=threshold, min_ss=ps_min_ss.(k), convergence_rate=rate)
+    return ParetoDiagnostics(k, threshold, ps_min_ss.(k), rate)
 end
 
 """
