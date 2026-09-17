@@ -1,11 +1,3 @@
-function Base.show(io::IO, ::MIME"text/plain", diagnostics::ParetoDiagnostics)
-    nparams = length(as_array(diagnostics.khat))
-    parameter_label = nparams == 1 ? "parameter" : "parameters"
-    println(io, "ParetoDiagnostics with $nparams $parameter_label")
-    threshold = min(0.7, diagnostics.khat_threshold)
-    return _print_pareto_khat_summary(io, diagnostics.khat, threshold)
-end
-
 function _print_pareto_khat_summary(io::IO, khat, threshold; ess_is=nothing)
     k = as_array(khat)
     isempty(k) && return print(io, "No parameter diagnostics.")
