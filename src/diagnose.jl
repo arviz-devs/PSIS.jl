@@ -4,25 +4,30 @@
 Pareto tail diagnostics returned by [`pareto_diagnose`](@ref) and
 [`pareto_smooth`](@ref).
 
+For vector or matrix observations, each field is a scalar. For batched
+observations, `khat`, `min_ss`, and `convergence_rate` have the parameter shape;
+`khat_threshold` is a scalar based on the pooled draw count. Each field links
+to its diagnostic's interpretation below.
+
 # Fields
 
 $(FIELDS)
 """
 struct ParetoDiagnostics{K,T<:Real,M,C}
     """
-    Estimated Pareto shape for each variable.
+    Estimated tail shape; see [`pareto_khat`](@ref).
     """
     khat::K
     """
-    Sample-size-dependent maximum k-hat for a reliable smoothed estimate.
+    Sample-size threshold; see [`pareto_khat_threshold`](@ref).
     """
     khat_threshold::T
     """
-    Heuristic minimum sample size for a Pareto-smoothed estimate.
+    Suggested sample size; see [`pareto_min_ss`](@ref).
     """
     min_ss::M
     """
-    Estimated relative RMSE convergence rate.
+    Relative RMSE rate; see [`pareto_convergence_rate`](@ref).
     """
     convergence_rate::C
 end
@@ -37,27 +42,45 @@ end
 """
     pareto_khat(x; r_eff, is_log_scale, tail, tail_length, warn) -> khat
 
-Estimate Pareto k-hat from the selected tail(s) of observations `x`,
+Estimate Pareto k-hat from the selected tail(s) of observations `x`.
 
 `x` consists of draws (or potentially log-draws) with shape
 `(draws, [chains, [params...]])`.
+Vectors and matrices return one value; additional dimensions index parameters.
+The observations are not modified.
+
+# Interpretation
+
+K-hat estimates generalized Pareto tail shape; larger values indicate heavier
+tails. It describes the variable on the scale of the expectation being estimated.
+For an ideal Pareto tail with positive shape `k`, moments of order `p < 1/k`
+exist: `k < 0.5` permits finite variance, while `k < 1` permits a finite mean.
+An estimated k-hat is a finite-sample diagnostic, not proof that population
+moments exist. It complements R-hat and rank-based ESS, which can look good
+despite poorly behaved moments.
+
+For interpretation in a Pareto-smoothed estimate, see
+[`pareto_khat_threshold`](@ref), [`pareto_min_ss`](@ref), and
+[`pareto_convergence_rate`](@ref). See also Section 3 of
+[VehtariSimpson2021](@citet).
 
 # Keywords
 
-- `r_eff=1`: a positive finite relative efficiency, supplied as a scalar or an array matching
+  - `r_eff=1`: a positive finite relative efficiency, supplied as a scalar or an array matching
     the parameter dimensions. The default assumes independent draws; for MCMC draws, an
     estimate based on tail ESS may be supplied explicitly.
-- `is_log_scale=false`: indicates whether `x` encodes positive observations on the log
+  - `is_log_scale=false`: indicates whether `x` encodes positive observations on the log
     scale: the fit describes the original-scale observations, not their logarithms. If true,
     only `tail=:right` is supported.
-- `tail`: which tail(s) to fit (`:left`, `:right`, or `:both`). If `:both`, the larger of
+  - `tail`: which tail(s) to fit (`:left`, `:right`, or `:both`). If `:both`, the larger of
     the k-hats of the left and right fits is returned. Default is `:both` if
     `is_log_scale=false` and `:right` if `is_log_scale=true`.
-- `tail_length`: the number of observations in the tail to use for fitting. In most cases
+  - `tail_length`: the number of observations in the tail to use for fitting. In most cases
     this should be left as `nothing` to use a sensible default.
-- `warn=false`: whether to display warnings for failed or unreliable diagnostics.
+  - `warn=false`: whether to display warnings for failed or unreliable diagnostics.
 
-If the fitting procedure fails or the tail is unreliable, `NaN` is returned.
+Failed fits return `NaN`. Successful fits return k-hat even when it exceeds
+the reliability threshold; `warn=true` additionally reports this condition.
 
 To compute additional diagnostics along with the k-hat estimate, use
 [`pareto_diagnose`](@ref).
@@ -91,10 +114,11 @@ end
 """
     pareto_diagnose(x; kwargs...) -> ParetoDiagnostics
 
-Compute Pareto diagnostics.
+Compute all Pareto diagnostics, fitting each requested tail once per variable.
+Prefer this to calling several sample-based diagnostic functions separately.
 
 For a description of the arguments, see [`pareto_khat`](@ref).
-For explanations of the diagnostics, see [`ParetoDiagnostics`](@ref).
+See [`ParetoDiagnostics`](@ref) for the result fields and links to their interpretation.
 """
 function pareto_diagnose(x::AbstractArray{<:Real}; kwargs...)
     return _pareto_diagnostics(pareto_khat(x; kwargs...), _sample_size(x))
@@ -102,39 +126,20 @@ end
 
 function _pareto_diagnostics(k, n)
     T = eltype(k)
-    threshold = n > 1 ? T(ps_khat_threshold(n)) : T(NaN)
-    rate = n > 1 ? ps_convergence_rate.(k, n) : oftype.(k, NaN)
-    return ParetoDiagnostics(k, threshold, ps_min_ss.(k), rate)
+    threshold = n > 1 ? T(pareto_khat_threshold(n)) : T(NaN)
+    rate = n > 1 ? pareto_convergence_rate.(k, n) : oftype.(k, NaN)
+    return ParetoDiagnostics(k, threshold, pareto_min_ss.(k), rate)
 end
 
-"""
-    pareto_min_ss(x; kwargs...)
+function pareto_min_ss(x::AbstractArray{<:Real}; kwargs...)
+    return pareto_min_ss.(pareto_khat(x; kwargs...))
+end
 
-Estimate the minimum sample size for a Pareto-smoothed estimate of `x`.
-Accepts the keywords of [`pareto_khat`](@ref). See [`ps_min_ss`](@ref) for
-the calculation from an existing k-hat.
-"""
-pareto_min_ss(x::AbstractArray{<:Real}; kwargs...) = ps_min_ss.(pareto_khat(x; kwargs...))
-
-"""
-    pareto_khat_threshold(x)
-
-Return the sample-size-dependent threshold for observations `x`, pooling the
-first two dimensions. Returns `NaN` for fewer than two draws.
-See [`ps_khat_threshold`](@ref).
-"""
 function pareto_khat_threshold(x::AbstractArray{<:Real})
     n = _sample_size(x)
-    return n > 1 ? ps_khat_threshold(n) : NaN
+    return n > 1 ? pareto_khat_threshold(n) : NaN
 end
 
-"""
-    pareto_convergence_rate(x; kwargs...)
-
-Estimate the relative RMSE convergence rate of a Pareto-smoothed estimate of `x`.
-Accepts the keywords of [`pareto_khat`](@ref). See [`ps_convergence_rate`](@ref)
-for its interpretation and calculation from an existing k-hat.
-"""
 function pareto_convergence_rate(x::AbstractArray{<:Real}; kwargs...)
     return pareto_diagnose(x; kwargs...).convergence_rate
 end
@@ -185,4 +190,4 @@ function _warn_diagnostics(k, n)
     return nothing
 end
 
-_psis_threshold(n) = n > 1 ? min(0.7, ps_khat_threshold(n)) : NaN
+_psis_threshold(n) = n > 1 ? min(0.7, pareto_khat_threshold(n)) : NaN

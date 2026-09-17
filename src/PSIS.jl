@@ -8,7 +8,6 @@ using Statistics: Statistics
 export PSISResult, ParetoDiagnostics
 export psis
 export pareto_smooth
-export ps_min_ss, ps_khat_threshold, ps_convergence_rate
 export pareto_khat,
     pareto_diagnose, pareto_min_ss, pareto_khat_threshold, pareto_convergence_rate
 

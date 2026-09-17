@@ -16,6 +16,9 @@ using DimensionalData: DimArray, Dimensions
     @test pareto_min_ss(x) == d.min_ss
     @test pareto_khat_threshold(x) == d.khat_threshold
     @test pareto_convergence_rate(x) == d.convergence_rate
+    @test pareto_min_ss(d.khat) == d.min_ss
+    @test pareto_khat_threshold(length(x)) == d.khat_threshold
+    @test pareto_convergence_rate(d.khat, length(x)) == d.convergence_rate
     @test pareto_khat(vec(x)) == d.khat
     @test pareto_khat(x) == max(pareto_khat(x; tail=:left), pareto_khat(x; tail=:right))
     @test pareto_khat(-x; tail=:left) ≈ pareto_khat(x; tail=:right)
@@ -63,7 +66,9 @@ using DimensionalData: DimArray, Dimensions
         reff = reshape(collect(range(0.5, 1.5; length=10)), 2, 5)
         batch = @inferred pareto_diagnose(values; r_eff=reff)
         @test size(batch.khat) == (2, 5)
-        @test batch.khat_threshold == ps_khat_threshold(2000)
+        @test batch.khat_threshold == pareto_khat_threshold(2000)
+        @test pareto_min_ss.(batch.khat) == batch.min_ss
+        @test pareto_convergence_rate.(batch.khat, 2000) == batch.convergence_rate
         for i in CartesianIndices(reff)
             onevar = pareto_diagnose(values[:, :, i]; r_eff=reff[i])
             @test batch.khat[i] == onevar.khat

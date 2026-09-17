@@ -37,5 +37,5 @@ using Test
     @test size(batch.pareto_khat) == (3,)
     @test pareto_diagnose(batch) isa ParetoDiagnostics
     @test pareto_diagnose(batch).khat == batch.pareto_khat
-    @test pareto_diagnose(batch).khat_threshold == ps_khat_threshold(200)
+    @test pareto_diagnose(batch).khat_threshold == pareto_khat_threshold(200)
 end

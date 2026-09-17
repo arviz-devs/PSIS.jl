@@ -5,9 +5,8 @@ CurrentModule = PSIS
 # Diagnosing and smoothing tails
 
 Pareto diagnostics can be computed without changing observations or calculating
-importance weights. For posterior draws, they describe the tails on the scale
-of the reported expectation. They complement R-hat and rank-based ESS: those
-diagnostics can look good even when a variable has poorly behaved moments.
+importance weights. See [`pareto_khat`](@ref) for their interpretation alongside
+MCMC diagnostics.
 
 ```@example diagnostics
 using PSIS, Distributions, Random
@@ -21,17 +20,13 @@ variables. `pareto_khat(x)` returns just the largest of the fitted left/right
 tail shapes. `tail=:left` and `tail=:right` select one tail. `pareto_diagnose`
 returns a `ParetoDiagnostics` record containing:
 
-- `khat`: the estimated shape;
-- `khat_threshold`: `1 - 1/log10(n)`, using the pooled sample size;
-- `min_ss`: a heuristic minimum sample size for a Pareto-smoothed estimate;
-- `convergence_rate`: the relative rate `α`, with local RMSE scaling approximately
-  as `n^(-α/2)`. A rate of one corresponds to the usual Monte Carlo rate.
+- `khat`: tail shape; see [`pareto_khat`](@ref);
+- `khat_threshold`: sample-size threshold; see [`pareto_khat_threshold`](@ref);
+- `min_ss`: suggested sample size; see [`pareto_min_ss`](@ref);
+- `convergence_rate`: relative RMSE rate; see [`pareto_convergence_rate`](@ref).
 
-These are estimates of finite-sample behavior, not proofs that population
-moments exist. The sample-size threshold is distinct from the PSIS warning
-threshold, which is capped at `0.7` because bias can dominate above it.
-The convergence-rate implementation uses the continuous limit of the smooth
-formula near `k=0.5`; see [`ps_convergence_rate`](@ref).
+The linked docstrings give the interpretation, assumptions, and limitations
+of each diagnostic.
 
 ## Relative efficiency and summaries
 
@@ -57,8 +52,25 @@ summarize(draws, :pareto_khat => mcmc_pareto_khat)
 ```
 
 For several diagnostics at once, `pareto_diagnose` reuses a single fit per tail.
-Each sample-based wrapper is paired with a helper for already computed values:
-`ps_min_ss(k)`, `ps_khat_threshold(n)`, and `ps_convergence_rate(k, n)`.
+
+## Diagnostics from an existing fit
+
+The same functions accept scalar fitted shapes or sample sizes. Array arguments
+always represent observations, so broadcast when working with arrays of k-hats:
+
+```@example diagnostics
+d = pareto_diagnose(x)
+n = size(x, 1) * size(x, 2) # pooled draws and chains
+pareto_min_ss(d.khat)
+pareto_khat_threshold(n)
+pareto_convergence_rate(d.khat, n)
+```
+
+```@example diagnostics
+khats = [0.3, 0.5, 0.7]
+pareto_min_ss.(khats)
+pareto_convergence_rate.(khats, n)
+```
 
 ## Smoothing
 

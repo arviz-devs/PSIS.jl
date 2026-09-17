@@ -14,6 +14,8 @@ reliable when `k <= min(0.7, 1 - 1/log10(n))`, where `n` pools draws and chains.
 The `ess_is` field is `NaN` for unreliable or failed fits. This does not establish
 reliability for every possible expectand.
 
+See [`pareto_khat`](@ref) and [`pareto_khat_threshold`](@ref) for interpretation.
+
 Use [`pareto_diagnose`](@ref) on a result to obtain additional diagnostics without
 refitting. See [VehtariSimpson2021](@citep).
 """
@@ -23,7 +25,7 @@ struct PSISResult{T,W<:AbstractArray{T},K,E}
     """
     log_weights::W
     """
-    Pareto k-hat (shape) diagnostic.
+    Tail shape of the raw importance ratios; see [`pareto_khat`](@ref).
     """
     pareto_khat::K
     """
