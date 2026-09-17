@@ -45,10 +45,11 @@ end
 
 function _smooth_tail!(x, fit, is_log_scale)
     fit.status === :ok || return x
-    probabilities = uniform_probabilities(eltype(x), length(fit.indices))
-    for (i, p) in zip(fit.indices, probabilities)
+    T = float(eltype(x))
+    probabilities = uniform_probabilities(T, length(fit.indices))
+    map!(view(x, fit.indices), probabilities) do p
         value = quantile(fit.dist, p) + fit.cutoff
-        x[i] = if is_log_scale
+        if is_log_scale
             min(log(value) + fit.shift, fit.extreme)
         else
             fit.sign * min(value * fit.scale, fit.sign * fit.extreme)

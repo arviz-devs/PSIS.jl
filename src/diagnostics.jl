@@ -6,9 +6,9 @@ already estimated Pareto shape `k`: `10^(1 / (1 - max(0, k)))` for `k < 1`,
 and `Inf` otherwise. This is a finite-sample heuristic, not a guarantee of accuracy.
 """
 function ps_min_ss(k::Real)
-    k = float(k)
-    k >= 1 && return oftype(k, Inf)
-    return exp10(inv(one(k) - max(zero(k), k)))
+    T = float(typeof(k))
+    k > 1 && return T(Inf)
+    return exp10(inv(1 - max(zero(T), k)))
 end
 
 """
@@ -20,7 +20,7 @@ of this value and `0.7`.
 """
 function ps_khat_threshold(n::Real)
     _check_sample_size(n)
-    return 1 - inv(log10(float(n)))
+    return 1 - inv(log10(n))
 end
 
 """
@@ -37,19 +37,17 @@ omitted from the paper's simplified special case. Rates are restricted to `[0, 1
 """
 function ps_convergence_rate(k::Real, n::Real)
     _check_sample_size(n)
-    k = float(k)
-    k <= 0 && return one(k)
-    k >= 1 && return zero(k)
-    logn = log(oftype(k, n))
-    a = 2k - 1
+    T = float(promote_type(typeof(k), typeof(n)))
+    k <= 0 && return one(T)
+    k >= 1 && return zero(T)
+
+    logn = log(T(n))
+    a = 2 * T(k) - 1
     z = a * logn
-    # z/expm1(z) has a removable singularity at zero.
-    ratio = if abs(z) < oftype(k, 0.001)
-        (1 - z / 2 + z^2 / 12 - z^4 / 720) / logn
-    else
-        a / expm1(z)
-    end
-    return clamp(1 - a + inv(oftype(k, n) - 1) - ratio, zero(k), one(k))
+    # a / expm1(z) → 1/log(n) as a → 0
+    ratio = iszero(z) ? inv(logn) : a / expm1(z)
+    rate = 1 + inv(T(n) - 1) - a - ratio
+    return clamp(rate, 0, 1)
 end
 
 function _check_sample_size(n)

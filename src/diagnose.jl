@@ -35,25 +35,32 @@ function Base.:(==)(a::ParetoDiagnostics, b::ParetoDiagnostics)
 end
 
 """
-    pareto_khat(x; r_eff=1, tail=:both, is_log_scale=false, tail_length=nothing, warn=false)
+    pareto_khat(x; r_eff, is_log_scale, tail, tail_length, warn) -> khat
 
-Estimate Pareto k-hat from the selected tail(s) of observations `x`, without
-modifying them. For `tail=:both`, return the larger of the left and right fits.
-Vectors and matrices represent one variable, with dimensions `(draws, chains)`;
-higher-dimensional arrays return one value per remaining parameter index.
+Estimate Pareto k-hat from the selected tail(s) of observations `x`,
 
-`r_eff` is a positive finite relative efficiency, supplied as a scalar or an
-array matching the parameter dimensions. The default assumes independent draws;
-for MCMC draws, an estimate based on tail ESS may be supplied explicitly.
-The default tail length is `floor(min(n/5, 3sqrt(n/r_eff)))`.
+`x` consists of draws (or potentially log-draws) with shape
+`(draws, [chains, [params...]])`.
 
-`is_log_scale=true` means `x` encodes positive observations on the log scale:
-the fit describes the original-scale observations, not their logarithms. Only
-the right tail is supported in this mode, and it becomes the default.
+# Keywords
 
-Constant or nonfinite tails and tails with fewer than five observations return
-`NaN`. Negative infinity in log-encoded data denotes zero and is allowed outside
-the fitted tail. `warn=true` reports failed or unreliable diagnostics.
+- `r_eff=1`: a positive finite relative efficiency, supplied as a scalar or an array matching
+    the parameter dimensions. The default assumes independent draws; for MCMC draws, an
+    estimate based on tail ESS may be supplied explicitly.
+- `is_log_scale=false`: indicates whether `x` encodes positive observations on the log
+    scale: the fit describes the original-scale observations, not their logarithms. If true,
+    only `tail=:right` is supported.
+- `tail`: which tail(s) to fit (`:left`, `:right`, or `:both`). If `:both`, the larger of
+    the k-hats of the left and right fits is returned. Default is `:both` if
+    `is_log_scale=false` and `:right` if `is_log_scale=true`.
+- `tail_length`: the number of observations in the tail to use for fitting. In most cases
+    this should be left as `nothing` to use a sensible default.
+- `warn=false`: whether to display warnings for failed or unreliable diagnostics.
+
+If the fitting procedure fails or the tail is unreliable, `NaN` is returned.
+
+To compute additional diagnostics along with the k-hat estimate, use
+[`pareto_diagnose`](@ref).
 """
 function pareto_khat(
     x::AbstractArray{<:Real};
@@ -82,16 +89,12 @@ function _diagnose_tails(x, m, tail, is_log_scale)
 end
 
 """
-    pareto_diagnose(x; kwargs...)
+    pareto_diagnose(x; kwargs...) -> ParetoDiagnostics
 
-Return a [`ParetoDiagnostics`](@ref) result containing `khat`, `khat_threshold`,
-`min_ss`, and `convergence_rate`. Keywords are those of [`pareto_khat`](@ref).
-Each variable is fitted once. The threshold uses the pooled number of draws,
-while the remaining fields have one value per variable. The scalar diagnostic
-functions can also be used as summary functions.
+Compute Pareto diagnostics.
 
-These diagnose tail behavior; they do not replace MCMC convergence diagnostics.
-The minimum sample size and convergence rate describe a Pareto-smoothed estimate.
+For a description of the arguments, see [`pareto_khat`](@ref).
+For explanations of the diagnostics, see [`ParetoDiagnostics`](@ref).
 """
 function pareto_diagnose(x::AbstractArray{<:Real}; kwargs...)
     return _pareto_diagnostics(pareto_khat(x; kwargs...), _sample_size(x))
