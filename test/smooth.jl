@@ -47,7 +47,10 @@ using DimensionalData: DimArray, Dimensions
         values = reshape(x, 100, 2, 2, 5)
         reff = fill(0.8, 2, 5)
         smoothed, d = @inferred pareto_smooth(values; r_eff=reff)
-        @test d == pareto_diagnose(values; r_eff=reff)
+        d2 = pareto_diagnose(values; r_eff=reff)
+        for k in propertynames(d)
+            @test getproperty(d, k) == getproperty(d2, k)
+        end
         for i in CartesianIndices(reff)
             onevar, _ = pareto_smooth(values[:, :, i]; r_eff=reff[i])
             @test smoothed[:, :, i] == onevar

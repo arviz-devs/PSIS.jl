@@ -32,13 +32,6 @@ struct ParetoDiagnostics{K,T<:Real,M,C}
     convergence_rate::C
 end
 
-function Base.:(==)(a::ParetoDiagnostics, b::ParetoDiagnostics)
-    return a.khat == b.khat &&
-           a.khat_threshold == b.khat_threshold &&
-           a.min_ss == b.min_ss &&
-           a.convergence_rate == b.convergence_rate
-end
-
 """
     pareto_khat(x; r_eff, is_log_scale, tail, tail_length, warn) -> khat
 
