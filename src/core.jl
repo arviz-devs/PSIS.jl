@@ -37,7 +37,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     (ndraws, nchains, nparams) = _sample_param_sizes(r.log_weights)
     println(io, "PSISResult with $ndraws draws, $nchains chains, and $nparams parameters")
-    threshold = _psis_threshold(_sample_size(r.log_weights))
+    threshold = _low_bias_mcse_threshold(_sample_size(r.log_weights))
     return _print_pareto_khat_summary(io, r.pareto_khat, threshold; ess_is=r.ess_is)
 end
 
@@ -96,7 +96,7 @@ function psis(logr::AbstractArray{<:Real}, r_eff=1; warn::Bool=true, tail_length
         logr; r_eff, is_log_scale=true, tail=:right, tail_length, warn
     )
     k = diagnostics.khat
-    threshold = _psis_threshold(_sample_size(logr))
+    threshold = _low_bias_mcse_threshold(_sample_size(logr))
     ess = ess_is(logw, r_eff)
     reliable_ess = ifelse.(isfinite.(k) .& (k .<= threshold), ess, oftype.(ess, NaN))
     return PSISResult(logw, k, reliable_ess)

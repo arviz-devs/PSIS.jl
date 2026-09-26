@@ -20,12 +20,14 @@ using DimensionalData: DimArray, Dimensions
         @testset "pareto_khat_threshold" begin
             @test PSIS.pareto_khat_threshold(100) == 0.5
             @test PSIS.pareto_khat_threshold(10_000) == 0.75
-            @test_throws ArgumentError PSIS.pareto_khat_threshold(1)
-            @test_throws ArgumentError PSIS.pareto_khat_threshold(0)
-            @test PSIS.pareto_khat_threshold(100) == 0.5
-            @test PSIS.pareto_khat_threshold(10_000) == 0.75
-            @test_throws ArgumentError PSIS.pareto_khat_threshold(1)
-            @test_throws ArgumentError PSIS.pareto_khat_threshold(0)
+            for n in (0, 1, 9, 9.5, 10)
+                @test PSIS.pareto_khat_threshold(n) == 0
+            end
+            @test PSIS.pareto_khat_threshold(9.0f0) === 0.0f0
+            @test isnan(PSIS.pareto_khat_threshold(NaN))
+            for k in (0.0, 0.3, 0.5, 0.7)
+                @test PSIS.pareto_khat_threshold(PSIS.pareto_min_ss(k)) ≈ k
+            end
         end
 
         @testset "pareto_convergence_rate" begin
@@ -34,7 +36,9 @@ using DimensionalData: DimArray, Dimensions
             @test PSIS.pareto_convergence_rate(1.0, 1000) == 0
             @test PSIS.pareto_convergence_rate(2.0, 1000) == 0
             @test isnan(PSIS.pareto_convergence_rate(NaN, 1000))
-            @test_throws ArgumentError PSIS.pareto_convergence_rate(0.5, 1)
+            for n in (-1, 0, 1), k in (-1.0, 0.5, 1.0)
+                @test isnan(PSIS.pareto_convergence_rate(k, n))
+            end
             # The continuous limit of the smooth expression includes 1/(n-1).
             @test PSIS.pareto_convergence_rate(0.5, 1000) ≈ 0.8562361736999171
             for k in (0.01, 0.3, 0.5 - 1e-10, 0.5 + 1e-10, 0.7, 0.99)
@@ -55,6 +59,11 @@ using DimensionalData: DimArray, Dimensions
     end
 
     @testset "diagnostics computed from samples" begin
+        for n in (0, 1, 9, 10)
+            values = zeros(n)
+            @test pareto_khat_threshold(values) == 0
+            @test pareto_diagnose(values).khat_threshold == 0
+        end
         rng = StableRNG(18)
         x = rand(rng, TDist(3), 10_000, 2)
         original = copy(x)
