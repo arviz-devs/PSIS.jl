@@ -10,6 +10,9 @@ ReferenceTests = "324d217c-45ce-50fc-942e-d289b448e8cf"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[sources]
+PSIS = {path = ".."}
+
 [compat]
 DimensionalData = "0.24.2, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30"
 Distributions = "0.25.81"
