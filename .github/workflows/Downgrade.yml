@@ -31,8 +31,16 @@ jobs:
           mode: deps
           projects: ".,test"
           skip: Logging,Test
-      - run: julia --color=yes --project=test -e 'using Pkg; Pkg.instantiate()'
-      - run: julia --color=yes --project=test --check-bounds=yes --depwarn=yes --code-coverage=@${{ github.workspace }} test/runtests.jl
+      - uses: julia-actions/julia-buildpkg@v1
+        with:
+          project: "test"
+      - run: |
+          import Pkg
+          Pkg.develop(Pkg.PackageSpec(path=pwd()))
+          Pkg.instantiate()
+          Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)
+          include(joinpath(pwd(), "test", "runtests.jl"))
+        shell: julia --color=yes --project=test/ --check-bounds=yes --depwarn=yes --code-coverage=@ {0}
         env:
           JULIA_NUM_THREADS: ${{ matrix.num_threads }}
       - uses: julia-actions/julia-processcoverage@v1
