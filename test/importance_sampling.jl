@@ -153,7 +153,7 @@ end
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
             # Freeze the historical ceiling-based tail count for these fixtures.
-            # The v9 floor-based default is tested separately in test/tails.jl.
+            # The v9 floor-based default is tested separately in test/tail_fit.jl.
             n = size(logr, 1) * size(logr, 2)
             m = ceil(Int, min(n / 5, 3sqrt(n / r_eff)))
             result = @inferred psis(logr, r_effs; tail_length=m, warn=false)
