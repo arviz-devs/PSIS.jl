@@ -21,8 +21,8 @@ using DimensionalData: Dimensions, DimArray
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto k-hat diagnostic summary:
-                                      Count       Min. ESS
-                 (-Inf, 0.629]  good  1 (100.0%)  $(floor(Int, ess_is))"""
+                                        Count       Min. ESS
+                 (-Inf, 0.629]  (good)  1 (100.0%)  $(floor(Int, ess_is))"""
         end
     end
 
@@ -47,10 +47,10 @@ using DimensionalData: Dimensions, DimArray
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto k-hat diagnostic summary:
-                                     Count       Min. ESS
-                 (0.5, 1]  bad        4 (13.3%)  ——
-                 (1, Inf)  very bad  25 (83.3%)  ——
-                       ——  failed     1 (3.3%)   ——"""
+                                       Count       Min. ESS
+                 (0.5, 1]  (bad)        4 (13.3%)  ——
+                 (1, Inf)  (very bad)  25 (83.3%)  ——
+                       ——  (failed)     1 (3.3%)   ——"""
         end
     end
 end

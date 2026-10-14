@@ -37,8 +37,12 @@ end
 function Base.show(io::IO, ::MIME"text/plain", r::PSISResult)
     (ndraws, nchains, nparams) = _sample_param_sizes(r.log_weights)
     println(io, "PSISResult with $ndraws draws, $nchains chains, and $nparams parameters")
+    return show(io, MIME"text/plain"(), pareto_k_table(r))
+end
+
+function pareto_k_table(r::PSISResult)
     threshold = _low_bias_mcse_threshold(_sample_size(r.log_weights))
-    return _print_pareto_khat_summary(io, r.pareto_khat, threshold; ess_is=r.ess_is)
+    return pareto_k_table(r.pareto_khat, threshold; ess=r.ess_is)
 end
 
 """

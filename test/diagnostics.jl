@@ -102,11 +102,11 @@ using DimensionalData: DimArray, Dimensions
             @test shown == """
                 ParetoDiagnostics with 4 parameters
                 Pareto k-hat diagnostic summary:
-                                        Count
-                 (-Inf, 0.7]  good      1 (25.0%)
-                    (0.7, 1]  bad       1 (25.0%)
-                    (1, Inf)  very bad  1 (25.0%)
-                          ——  failed    1 (25.0%)"""
+                                          Count
+                 (-Inf, 0.7]  (good)      1 (25.0%)
+                    (0.7, 1]  (bad)       1 (25.0%)
+                    (1, Inf)  (very bad)  1 (25.0%)
+                          ——  (failed)    1 (25.0%)"""
         end
 
         @testset "failure is quiet and explicit" begin

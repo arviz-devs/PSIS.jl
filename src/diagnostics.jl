@@ -30,8 +30,11 @@ function Base.show(io::IO, ::MIME"text/plain", diagnostics::ParetoDiagnostics)
     nparams = length(as_array(diagnostics.khat))
     parameter_label = nparams == 1 ? "parameter" : "parameters"
     println(io, "ParetoDiagnostics with $nparams $parameter_label")
-    threshold = min(0.7, diagnostics.khat_threshold)
-    return _print_pareto_khat_summary(io, diagnostics.khat, threshold)
+    return show(io, MIME"text/plain"(), pareto_k_table(diagnostics))
+end
+
+function pareto_k_table(diagnostics::ParetoDiagnostics)
+    return pareto_k_table(diagnostics.khat, min(0.7, diagnostics.khat_threshold))
 end
 
 """

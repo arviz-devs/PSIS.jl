@@ -6,6 +6,7 @@ using Test
     include("generalized_pareto.jl")
     include("diagnostics.jl")
     include("tails.jl")
+    include("summary.jl")
     include("smooth.jl")
     include("psis_diagnostics.jl")
     include("core.jl")

@@ -6,6 +6,7 @@ using Printf: @sprintf
 using Statistics: Statistics
 
 export PSISResult, ParetoDiagnostics
+export pareto_k_table
 export psis
 export pareto_smooth
 export pareto_khat,
