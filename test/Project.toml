@@ -7,6 +7,7 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 PSIS = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
 ReferenceTests = "324d217c-45ce-50fc-942e-d289b448e8cf"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
@@ -21,4 +22,5 @@ Logging = "1"
 PSIS = "0.10"
 ReferenceTests = "0.9, 0.10"
 StableRNGs = "1"
+Tables = "1"
 Test = "1"

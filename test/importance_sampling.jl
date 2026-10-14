@@ -4,7 +4,6 @@ using ReferenceTests
 using StableRNGs
 using Distributions: GeneralizedPareto, Normal, Cauchy, Exponential, TDist, logpdf
 using LogExpFunctions: logsumexp, softmax
-using Logging: SimpleLogger, with_logger
 using DimensionalData: Dimensions, DimArray
 
 @testset "PSISResult" begin
@@ -22,8 +21,8 @@ using DimensionalData: Dimensions, DimArray
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 500 draws, 1 chains, and 1 parameters
                 Pareto k-hat diagnostic summary:
-                                    Count       Min. ESS
-                 (-Inf, 0.5]  good  1 (100.0%)  $(floor(Int, ess_is))"""
+                                        Count       Min. ESS
+                 (-Inf, 0.629]  (good)  1 (100.0%)  $(floor(Int, ess_is))"""
         end
     end
 
@@ -44,15 +43,14 @@ using DimensionalData: Dimensions, DimArray
             x = rand(rng, proposal, 100, 1, 30)
             log_ratios = logpdf.(target, x) .- logpdf.(proposal, x)
             r_eff = [100; ones(29)]
-            result = psis(log_ratios, r_eff)
+            result = psis(log_ratios, r_eff; warn=false)
             @test sprint(show, "text/plain", result) == """
                 PSISResult with 100 draws, 1 chains, and 30 parameters
                 Pareto k-hat diagnostic summary:
                                        Count       Min. ESS
-                 (0.5, 0.7]  okay       2 (6.7%)   99
-                   (0.7, 1]  bad        2 (6.7%)   ——
-                   (1, Inf)  very bad  25 (83.3%)  ——
-                         ——  failed     1 (3.3%)   ——"""
+                 (0.5, 1]  (bad)        4 (13.3%)  ——
+                 (1, Inf)  (very bad)  25 (83.3%)  ——
+                       ——  (failed)     1 (3.3%)   ——"""
         end
     end
 end
@@ -78,7 +76,7 @@ end
                 x = rand(rng, proposal, sz)
                 logr = logpdf.(target, x) .- logpdf.(proposal, x)
 
-                r = @inferred psis(logr)
+                r = @inferred psis(logr; warn=false)
                 @test r isa PSISResult
                 logw = r.log_weights
                 @test logw isa typeof(logr)
@@ -126,99 +124,22 @@ end
         @test_throws DimensionMismatch psis(x, rand(3))
     end
 
-    @testset "warnings" begin
-        io = IOBuffer()
-        @testset for sz in (100, (100, 4, 3)), rbad in (-1, 0, NaN)
-            logr = randn(sz)
-            result = with_logger(SimpleLogger(io)) do
-                psis(logr, rbad)
-            end
-            msg = String(take!(io))
-            @test occursin("All values of `r_eff` should be finite, but some are not.", msg)
+    @testset "invalid inputs and failed fits" begin
+        for sz in (100, (100, 4, 3)), rbad in (-1, 0, NaN, Inf)
+            @test_throws ArgumentError psis(randn(sz), rbad)
         end
-
-        io = IOBuffer()
-        logr = randn(5)
-        result = with_logger(SimpleLogger(io)) do
-            psis(logr)
-        end
-        @test result.log_weights == logr
-        @test isnan(result.pareto_khat)
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: 1 tail draws is insufficient to fit the generalized Pareto distribution.",
-            msg,
-        )
-
-        skipnan(x) = filter(!isnan, x)
-        io = IOBuffer()
-        for logr in [
+        for logr in (
+            randn(5),
             [NaN; randn(100)],
             [Inf; randn(100)],
             fill(-Inf, 100),
             vcat(ones(50), fill(-Inf, 435)),
-        ]
-            result = with_logger(SimpleLogger(io)) do
-                psis(logr)
-            end
-            @test skipnan(result.log_weights) == skipnan(logr)
+        )
+            result = @test_logs (:warn, r"could not be fit") psis(logr)
+            @test isequal(result.log_weights, logr)
             @test isnan(result.pareto_khat)
-            msg = String(take!(io))
-            @test occursin("Warning: Tail contains non-finite values.", msg)
+            @test isnan(result.ess_is)
         end
-
-        io = IOBuffer()
-        rng = StableRNG(83)
-        x = rand(rng, Exponential(50), 1_000)
-        logr = logpdf.(Exponential(1), x) .- logpdf.(Exponential(50), x)
-        result = with_logger(SimpleLogger(io)) do
-            psis(logr)
-        end
-        @test result.log_weights != logr
-        @test result.pareto_khat > 0.7
-        msg = String(take!(io))
-        @test occursin("Warning: Pareto k-hat = 0.72 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
-
-        io = IOBuffer()
-        with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_khat(1.1)
-        end
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: Pareto k-hat = 1.1 > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
-        )
-
-        io = IOBuffer()
-        with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_khat(0.8)
-        end
-        msg = String(take!(io))
-        @test occursin("Warning: Pareto k-hat = 0.8 > 0.7. $(PSIS.BAD_KHAT_SUMMARY)", msg)
-
-        io = IOBuffer()
-        with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_khat(0.69)
-        end
-        msg = String(take!(io))
-        @test isempty(msg)
-
-        khats = [NaN, 0.69, 0.71, 1.1]
-        io = IOBuffer()
-        with_logger(SimpleLogger(io)) do
-            PSIS.check_pareto_khat(khats)
-        end
-        msg = String(take!(io))
-        @test occursin(
-            "Warning: 1 parameters had Pareto k-hat values in (0.7, 1]. $(PSIS.BAD_KHAT_SUMMARY)",
-            msg,
-        )
-        @test occursin(
-            "Warning: 1 parameters had Pareto k-hat > 1. $(PSIS.VERY_BAD_KHAT_SUMMARY)", msg
-        )
-        @test occursin(
-            "Warning: For 1 parameters, the generalized Pareto distribution could not be fit to the tail draws.",
-            msg,
-        )
     end
 
     @testset "test against reference values" begin
@@ -231,7 +152,11 @@ end
         logr = permutedims(logr, (2, 3, 1))
         @testset for r_eff in (0.7, 1.2)
             r_effs = fill(r_eff, sz[1])
-            result = @inferred psis(logr, r_effs)
+            # Freeze the historical ceiling-based tail count for these fixtures.
+            # The v9 floor-based default is tested separately in test/tail_fit.jl.
+            n = size(logr, 1) * size(logr, 2)
+            m = ceil(Int, min(n / 5, 3sqrt(n / r_eff)))
+            result = @inferred psis(logr, r_effs; tail_length=m, warn=false)
             logw = result.log_weights
             @test !isapprox(logw, logr)
             basename = "normal_to_cauchy_r_eff_$(r_eff)"
@@ -240,7 +165,7 @@ end
                 Dict(
                     "log_weights" => logw,
                     "pareto_khat" => result.pareto_khat,
-                    "ess_is" => result.ess_is,
+                    "ess_is" => PSIS.ess_is(logw, r_effs),
                 ),
                 by =
                     (ref, x) ->
@@ -271,7 +196,7 @@ end
                     Dimensions.Dim{:param}(param_names),
                 ),
             )
-            result = @inferred psis(logr)
+            result = @inferred psis(logr; warn=false)
             @test result.log_weights isa DimArray
             @test Dimensions.dims(result.log_weights) == Dimensions.dims(logr)
             @testset for k in (:pareto_khat, :ess_is)

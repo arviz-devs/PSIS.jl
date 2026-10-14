@@ -13,6 +13,8 @@ missing_to_nan(x) = x
 # dimensions corresponding to draws (and maybe chains)
 _sample_dims(x::AbstractArray) = ntuple(identity, min(2, ndims(x)))
 
+_sample_size(x) = prod(Base.Fix1(size, x), _sample_dims(x))
+
 # dimension corresponding to parameters
 _param_dims(x::AbstractArray) = ntuple(i -> i + 2, max(0, ndims(x) - 2))
 
