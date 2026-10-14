@@ -1,4 +1,4 @@
-using Distributions, Plots, PSIS
+using Distributions, PSIS
 using Documenter
 using DocumenterCitations
 using DocumenterInterLinks
@@ -22,7 +22,6 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Plotting" => "plotting.md",
         "API" => "api.md",
         "Internal" => "internal.md",
         "References" => "references.md",
