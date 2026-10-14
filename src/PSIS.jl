@@ -18,7 +18,7 @@ include("diagnostics.jl")
 include("tails.jl")
 include("summary.jl")
 include("smooth.jl")
-include("core.jl")
+include("importance_sampling.jl")
 include("ess.jl")
 
 end

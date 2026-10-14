@@ -9,6 +9,6 @@ using Test
     include("summary.jl")
     include("smooth.jl")
     include("psis_diagnostics.jl")
-    include("core.jl")
+    include("importance_sampling.jl")
     include("ess.jl")
 end
