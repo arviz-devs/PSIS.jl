@@ -3,13 +3,20 @@ Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 DocumenterInterLinks = "d12716ef-a0f6-4df4-a9f1-a5a34e75c656"
+LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
 MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
 PSIS = "ce719bf2-d5d0-4fb9-925d-10a81b42ad04"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[sources]
+PSIS = {path = ".."}
 
 [compat]
 Distributions = "0.25.81"
 Documenter = "1"
 DocumenterCitations = "1.2.1"
 DocumenterInterLinks = "1"
+LogExpFunctions = "0.3.3, 1.0"
 MCMCDiagnosticTools = "0.3.2"
+PSIS = "0.10"
+Random = "1"
